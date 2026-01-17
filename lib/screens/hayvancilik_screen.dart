@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/animal.dart';
 import '../widgets/animal_card.dart';
+import '../services/location_storage_service.dart';
 import 'add_animal_screen.dart';
 import 'animal_detail_screen.dart';
 
@@ -13,11 +14,25 @@ class HayvancilikScreen extends StatefulWidget {
 
 class _HayvancilikScreenState extends State<HayvancilikScreen> {
   List<Animal> _animals = [];
+  String? _selectedCity;
+  String _currentAddress = 'Konum yükleniyor...';
 
   @override
   void initState() {
     super.initState();
+    _loadSavedLocation();
     _loadAnimals();
+  }
+
+  Future<void> _loadSavedLocation() async {
+    final savedLocation = await LocationStorageService.loadLocation();
+    
+    if (savedLocation['city'] != null) {
+      setState(() {
+        _selectedCity = savedLocation['city'];
+        _currentAddress = savedLocation['address'];
+      });
+    }
   }
 
   void _loadAnimals() {
@@ -73,7 +88,20 @@ class _HayvancilikScreenState extends State<HayvancilikScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Hayvancılık'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Hayvancılık'),
+            if (_selectedCity != null)
+              Text(
+                _selectedCity!,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.normal,
+                ),
+              ),
+          ],
+        ),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         actions: [

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/field.dart';
+import '../services/field_storage_service.dart';
 import 'add_edit_field_screen.dart';
 
 class FieldDetailScreen extends StatefulWidget {
@@ -21,12 +22,13 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
     _tasks = List.from(widget.field.tasks);
   }
 
-  void _toggleTask(int index) {
+  Future<void> _toggleTask(int index) async {
     setState(() {
       _tasks[index] = _tasks[index].copyWith(
         isCompleted: !_tasks[index].isCompleted,
       );
     });
+    await _saveTasksToStorage();
   }
 
   Future<void> _addTask() async {
@@ -46,6 +48,7 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
           category: result['category'],
         ));
       });
+      await _saveTasksToStorage();
     }
   }
 
@@ -70,6 +73,7 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
           category: result['category'],
         );
       });
+      await _saveTasksToStorage();
     }
   }
 
@@ -97,7 +101,21 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
       setState(() {
         _tasks.removeAt(index);
       });
+      await _saveTasksToStorage();
     }
+  }
+
+  Future<void> _saveTasksToStorage() async {
+    final updatedField = Field(
+      id: widget.field.id,
+      name: widget.field.name,
+      area: widget.field.area,
+      currentCrop: widget.field.currentCrop,
+      plantingDate: widget.field.plantingDate,
+      harvestDate: widget.field.harvestDate,
+      tasks: _tasks,
+    );
+    await FieldStorageService.updateField(updatedField);
   }
 
   Future<void> _editField() async {
@@ -143,25 +161,40 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
     final completedCount = _tasks.where((t) => t.isCompleted).length;
     final progress = _tasks.isNotEmpty ? completedCount / _tasks.length : 0.0;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F1E8),
-      appBar: AppBar(
-        title: Text(widget.field.name),
+    return WillPopScope(
+      onWillPop: () async {
+        // Geri giderken güncellenmiş tarlayı döndür
+        final updatedField = Field(
+          id: widget.field.id,
+          name: widget.field.name,
+          area: widget.field.area,
+          currentCrop: widget.field.currentCrop,
+          plantingDate: widget.field.plantingDate,
+          harvestDate: widget.field.harvestDate,
+          tasks: _tasks,
+        );
+        Navigator.pop(context, {'action': 'update', 'field': updatedField});
+        return false;
+      },
+      child: Scaffold(
         backgroundColor: const Color(0xFFF5F1E8),
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: _editField,
-            tooltip: 'Düzenle',
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: _deleteField,
-            tooltip: 'Sil',
-          ),
-        ],
-      ),
+        appBar: AppBar(
+          title: Text(widget.field.name),
+          backgroundColor: const Color(0xFFF5F1E8),
+          elevation: 0,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: _editField,
+              tooltip: 'Düzenle',
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: _deleteField,
+              tooltip: 'Sil',
+            ),
+          ],
+        ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -174,6 +207,7 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
             _buildTasksCard(),
           ],
         ),
+      ),
       ),
     );
   }

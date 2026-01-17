@@ -104,7 +104,7 @@ class FieldsCarouselCard extends StatelessWidget {
           final action = result['action'];
           final updatedField = result['field'] as Field;
           
-          if (action == 'edit') {
+          if (action == 'edit' || action == 'update') {
             onFieldUpdated(updatedField);
           } else if (action == 'delete') {
             onFieldDeleted(updatedField);

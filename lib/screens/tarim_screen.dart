@@ -9,6 +9,8 @@ import '../widgets/today_planting_card.dart';
 import '../widgets/fields_carousel_card.dart';
 import '../models/city.dart';
 import '../models/field.dart';
+import '../services/field_storage_service.dart';
+import '../services/location_storage_service.dart';
 import 'city_selector_screen.dart';
 import 'add_edit_field_screen.dart';
 
@@ -26,109 +28,53 @@ class _TarimScreenState extends State<TarimScreen> {
   bool _isLoading = true;
   bool _isManualSelection = false;
   
-  // Demo tarla verileri
-  late List<Field> _fields;
+  // Tarla verileri
+  List<Field> _fields = [];
 
   @override
   void initState() {
     super.initState();
-    _getCurrentLocation();
-    _initializeDemoFields();
+    _loadSavedLocation();
+    _loadFields();
   }
 
-  void _initializeDemoFields() {
-    _fields = [
-      Field(
-        id: '1',
-        name: 'Tarla 1',
-        area: 2.5,
-        currentCrop: 'Buğday',
-        plantingDate: DateTime(2025, 10, 15),
-        harvestDate: DateTime(2026, 6, 25),
-        tasks: [
-          Task(
-            id: '1',
-            title: 'Toprak hazırlığı',
-            isCompleted: true,
-            category: TaskCategory.beforePlanting,
-          ),
-          Task(
-            id: '2',
-            title: 'Gübreleme',
-            isCompleted: true,
-            category: TaskCategory.beforePlanting,
-          ),
-          Task(
-            id: '3',
-            title: 'Ekim',
-            isCompleted: true,
-            category: TaskCategory.planting,
-          ),
-          Task(
-            id: '4',
-            title: 'İlaçlama',
-            dueDate: DateTime(2026, 3, 15),
-            isCompleted: false,
-            category: TaskCategory.afterPlanting,
-          ),
-          Task(
-            id: '5',
-            title: 'Hasat',
-            dueDate: DateTime(2026, 6, 25),
-            isCompleted: false,
-            category: TaskCategory.harvest,
-          ),
-        ],
-      ),
-      Field(
-        id: '2',
-        name: 'Tarla 2',
-        area: 1.8,
-        currentCrop: 'Mısır',
-        plantingDate: DateTime(2025, 5, 10),
-        harvestDate: DateTime(2025, 9, 20),
-        tasks: [
-          Task(
-            id: '6',
-            title: 'Toprak analizi',
-            isCompleted: true,
-            category: TaskCategory.beforePlanting,
-          ),
-          Task(
-            id: '7',
-            title: 'Ekim',
-            isCompleted: true,
-            category: TaskCategory.planting,
-          ),
-          Task(
-            id: '8',
-            title: 'Sulama sistemi kurulumu',
-            dueDate: DateTime(2025, 6, 1),
-            isCompleted: false,
-            category: TaskCategory.afterPlanting,
-          ),
-          Task(
-            id: '9',
-            title: 'Yabani ot temizliği',
-            dueDate: DateTime(2025, 7, 15),
-            isCompleted: false,
-            category: TaskCategory.maintenance,
-          ),
-          Task(
-            id: '10',
-            title: 'Hasat',
-            dueDate: DateTime(2025, 9, 20),
-            isCompleted: false,
-            category: TaskCategory.harvest,
-          ),
-        ],
-      ),
-      Field(
-        id: '3',
-        name: 'Tarla 3',
-        area: 3.0,
-      ),
-    ];
+  Future<void> _loadSavedLocation() async {
+    final savedLocation = await LocationStorageService.loadLocation();
+    
+    if (savedLocation['city'] != null) {
+      // Kayıtlı konum var, onu kullan
+      setState(() {
+        _selectedCity = savedLocation['city'];
+        _currentAddress = savedLocation['address'];
+        _isManualSelection = savedLocation['isManual'];
+        _isLoading = false;
+        
+        if (savedLocation['latitude'] != null && savedLocation['longitude'] != null) {
+          _currentPosition = Position(
+            latitude: savedLocation['latitude'],
+            longitude: savedLocation['longitude'],
+            timestamp: DateTime.now(),
+            accuracy: 0,
+            altitude: 0,
+            altitudeAccuracy: 0,
+            heading: 0,
+            headingAccuracy: 0,
+            speed: 0,
+            speedAccuracy: 0,
+          );
+        }
+      });
+    } else {
+      // Kayıtlı konum yok, otomatik al
+      _getCurrentLocation();
+    }
+  }
+
+  Future<void> _loadFields() async {
+    final loadedFields = await FieldStorageService.loadFields();
+    setState(() {
+      _fields = loadedFields;
+    });
   }
 
   Future<void> _addNewField() async {
@@ -140,6 +86,7 @@ class _TarimScreenState extends State<TarimScreen> {
     );
     
     if (result != null && result is Field) {
+      await FieldStorageService.addField(result);
       setState(() {
         _fields.add(result);
       });
@@ -153,7 +100,8 @@ class _TarimScreenState extends State<TarimScreen> {
     }
   }
 
-  void _updateField(Field updatedField) {
+  Future<void> _updateField(Field updatedField) async {
+    await FieldStorageService.updateField(updatedField);
     setState(() {
       final index = _fields.indexWhere((f) => f.id == updatedField.id);
       if (index != -1) {
@@ -169,7 +117,8 @@ class _TarimScreenState extends State<TarimScreen> {
     );
   }
 
-  void _deleteField(Field field) {
+  Future<void> _deleteField(Field field) async {
+    await FieldStorageService.deleteField(field.id);
     setState(() {
       _fields.removeWhere((f) => f.id == field.id);
     });
@@ -238,6 +187,15 @@ class _TarimScreenState extends State<TarimScreen> {
             _isLoading = false;
           });
         } else {
+          // Konumu kaydet
+          await LocationStorageService.saveLocation(
+            city: cityName,
+            address: cityName.isNotEmpty ? cityName : 'Konum tespit edildi',
+            latitude: position.latitude,
+            longitude: position.longitude,
+            isManual: false,
+          );
+          
           setState(() {
             _currentPosition = position;
             _selectedCity = cityName;
@@ -255,14 +213,19 @@ class _TarimScreenState extends State<TarimScreen> {
   }
 
   Future<void> _selectCityManually() async {
-    final City? selectedCity = await Navigator.push(
+    final selectedCity = await Navigator.push<City>(
       context,
-      MaterialPageRoute(
-        builder: (context) => const CitySelectorScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const CitySelectorScreen()),
     );
 
     if (selectedCity != null) {
+      // Manuel seçimi kaydet
+      await LocationStorageService.saveLocation(
+        city: selectedCity.name,
+        address: selectedCity.name,
+        isManual: true,
+      );
+      
       setState(() {
         _selectedCity = selectedCity.name;
         _currentAddress = selectedCity.name;
