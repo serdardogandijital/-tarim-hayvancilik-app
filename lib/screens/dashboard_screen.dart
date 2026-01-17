@@ -8,6 +8,8 @@ import '../services/animal_storage_service.dart';
 import '../services/field_storage_service.dart';
 import '../services/location_storage_service.dart';
 import '../services/weather_service.dart';
+import '../widgets/live_scale_card.dart';
+import 'gallery_scale_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -100,6 +102,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F1E8),
+      appBar: AppBar(
+        title: const Text(
+          'Ana Sayfa',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w400,
+            color: Color(0xFF8B8B8B),
+          ),
+        ),
+        backgroundColor: const Color(0xFFF5F1E8),
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined),
+            color: const Color(0xFF8B8B8B),
+            onPressed: () {},
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -108,6 +129,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               const SizedBox(height: 8),
               _buildOverviewCard(dateText),
+              const SizedBox(height: 16),
+              const LiveScaleCard(),
+              const SizedBox(height: 12),
+              _buildGalleryButton(),
               const SizedBox(height: 16),
               Text(
                 'Yakında burada daha fazla özet kartı göstereceğiz.',
@@ -120,21 +145,68 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _buildGalleryButton() {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const GalleryScaleScreen(),
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.green[300]!, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.green.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.photo_library_outlined,
+              color: Colors.green[700],
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Galeriden Görsel ile Canlı Baskül Tahmini',
+              style: TextStyle(
+                color: Colors.green[700],
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildOverviewCard(String dateText) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [Color(0xFFcdeccb), Color(0xFFf3fff1)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -143,13 +215,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.place, size: 18, color: Colors.green[800]),
-              const SizedBox(width: 6),
+              Icon(Icons.place, size: 16, color: Colors.green[800]),
+              const SizedBox(width: 4),
               Expanded(
                 child: Text(
                   _city ?? 'Konum seçilmedi',
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -157,21 +229,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Text(
                 dateText,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 11,
                   color: Colors.grey[700],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           _buildWeatherRow(),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(child: _buildStatChip('Tarlalar', _fieldCount.toString(), Icons.agriculture)),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Expanded(child: _buildStatChip('Hayvanlar', _animalCount.toString(), Icons.pets)),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Expanded(child: _buildStatChip('Yaklaşan', _upcomingCount.toString(), Icons.notifications_active)),
             ],
           ),
@@ -211,21 +283,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final weather = _weather!;
     return Row(
       children: [
-        Icon(_mapWeatherIcon(weather.icon), color: Colors.orange[700]),
-        const SizedBox(width: 8),
+        Icon(_mapWeatherIcon(weather.icon), color: Colors.orange[700], size: 20),
+        const SizedBox(width: 6),
         Text(
           '${weather.temperature.toStringAsFixed(0)}°C',
           style: const TextStyle(
-            fontSize: 18,
+            fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
         Expanded(
           child: Text(
             weather.description,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 12,
               color: Colors.grey[800],
             ),
           ),
@@ -233,7 +305,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Text(
           'Nem %${weather.humidity}',
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 11,
             color: Colors.grey[700],
           ),
         ),
@@ -264,29 +336,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildStatChip(String title, String value, IconData icon) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.85),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: Colors.green[700]),
-          const SizedBox(width: 6),
+          Icon(icon, size: 16, color: Colors.green[700]),
+          const SizedBox(width: 4),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 value,
                 style: const TextStyle(
-                  fontSize: 15,
+                  fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               Text(
                 title,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 10,
                   color: Colors.grey[600],
                 ),
               ),

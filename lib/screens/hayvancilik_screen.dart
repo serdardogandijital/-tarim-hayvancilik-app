@@ -98,23 +98,23 @@ class _HayvancilikScreenState extends State<HayvancilikScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F1E8),
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Hayvancılık'),
-            if (_selectedCity != null)
-              Text(
-                _selectedCity!,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.normal,
-                ),
-              ),
-          ],
+        title: const Text(
+          'Hayvancılık',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w400,
+            color: Color(0xFF8B8B8B),
+          ),
         ),
         backgroundColor: const Color(0xFFF5F1E8),
-        foregroundColor: Colors.grey[800],
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined),
+            color: const Color(0xFF8B8B8B),
+            onPressed: () {},
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

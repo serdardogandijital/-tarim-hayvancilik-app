@@ -49,5 +49,9 @@
 	<string>Bulunduğunuz bölgeye göre ekim önerileri ve hava durumu bilgisi almak için konum izni gerekiyor.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>Tarım ve hayvancılık önerilerini kişiselleştirmek için konum bilgisi kullanılıyor.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Hayvan ağırlık tahmini için kamera kullanılıyor.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Hayvan fotoğrafı seçmek için galeri erişimi gerekiyor.</string>
 </dict>
 </plist>
