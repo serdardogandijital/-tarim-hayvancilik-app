@@ -1,5 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path/path.dart' as p;
+
 import '../models/animal.dart';
 import '../services/animal_storage_service.dart';
 import 'add_animal_screen.dart';
@@ -20,6 +25,90 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
   void initState() {
     super.initState();
     _animal = widget.animal;
+  }
+
+  Widget _buildAttachmentsCard(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Belgeler & Fotoğraflar',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const Divider(),
+            if (_animal.attachments.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  'Henüz eklenen belge bulunmuyor.',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              )
+            else
+              ..._animal.attachments.map(
+                (attachment) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    _attachmentIcon(attachment.type, attachment.name),
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  title: Text(
+                    attachment.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    DateFormat('dd MMM yyyy, HH:mm', 'tr_TR')
+                        .format(attachment.addedAt),
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.open_in_new),
+                    tooltip: 'Aç',
+                    onPressed: () => _openAttachment(attachment),
+                  ),
+                  onTap: () => _openAttachment(attachment),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openAttachment(AnimalAttachment attachment) async {
+    final file = File(attachment.filePath);
+    if (!await file.exists()) {
+      _showSnack('Dosya bulunamadı: ${attachment.name}');
+      return;
+    }
+
+    final result = await OpenFilex.open(attachment.filePath);
+    if (result.type != ResultType.done) {
+      _showSnack('Dosya açılamadı (${result.message})');
+    }
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  IconData _attachmentIcon(String type, String fileName) {
+    if (type == 'photo') {
+      return Icons.photo;
+    }
+    final extension = p.extension(fileName).toLowerCase();
+    if (extension == '.pdf') return Icons.picture_as_pdf;
+    if (extension == '.doc' || extension == '.docx') return Icons.description;
+    return Icons.attach_file;
   }
 
   Future<void> _updateAnimal(Animal updatedAnimal) async {
@@ -206,6 +295,8 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
           _buildVaccineCard(context),
           const SizedBox(height: 16),
           _buildFeedCard(context),
+          const SizedBox(height: 16),
+          _buildAttachmentsCard(context),
           if (_animal.notes.isNotEmpty) ...[
             const SizedBox(height: 16),
             _buildInfoCard(

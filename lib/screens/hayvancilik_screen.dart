@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../models/animal.dart';
 import '../widgets/location_card.dart';
 import '../widgets/livestock_stats_row.dart';
 import '../widgets/livestock_animals_card.dart';
-import '../services/location_storage_service.dart';
 import '../services/animal_storage_service.dart';
 import '../models/city.dart';
+import '../widgets/livestock_weather_alert.dart';
+import '../providers/location_notifier.dart';
 import 'city_selector_screen.dart';
 
 class HayvancilikScreen extends StatefulWidget {
@@ -17,28 +20,11 @@ class HayvancilikScreen extends StatefulWidget {
 
 class _HayvancilikScreenState extends State<HayvancilikScreen> {
   List<Animal> _animals = [];
-  String? _selectedCity;
-  String _currentAddress = 'Konum yükleniyor...';
-  bool _isLoading = false;
-  bool _isManualSelection = false;
 
   @override
   void initState() {
     super.initState();
-    _loadSavedLocation();
     _loadAnimals();
-  }
-
-  Future<void> _loadSavedLocation() async {
-    final savedLocation = await LocationStorageService.loadLocation();
-    
-    if (savedLocation['city'] != null) {
-      setState(() {
-        _selectedCity = savedLocation['city'];
-        _currentAddress = savedLocation['address'];
-        _isManualSelection = savedLocation['isManual'];
-      });
-    }
   }
 
   Future<void> _selectCityManually() async {
@@ -47,18 +33,13 @@ class _HayvancilikScreenState extends State<HayvancilikScreen> {
       MaterialPageRoute(builder: (context) => const CitySelectorScreen()),
     );
 
-    if (selectedCity != null) {
-      await LocationStorageService.saveLocation(
-        city: selectedCity.name,
-        address: selectedCity.name,
-        isManual: true,
-      );
-      
-      setState(() {
-        _selectedCity = selectedCity.name;
-        _currentAddress = selectedCity.name;
-        _isManualSelection = true;
-      });
+    if (selectedCity != null && mounted) {
+      await context.read<LocationNotifier>().updateLocation(
+            city: selectedCity.name,
+            address: selectedCity.name,
+            isManual: true,
+            notifyLoading: false,
+          );
     }
   }
 
@@ -95,6 +76,9 @@ class _HayvancilikScreenState extends State<HayvancilikScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final location = context.watch<LocationNotifier>();
+    final selectedCity = location.city;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F1E8),
       appBar: AppBar(
@@ -121,11 +105,11 @@ class _HayvancilikScreenState extends State<HayvancilikScreen> {
         child: Column(
           children: [
             LocationCard(
-              address: _currentAddress,
-              isLoading: _isLoading,
+              address: location.address,
+              isLoading: location.isLoading,
               onRefresh: () {}, // Hayvancılıkta GPS yok, sadece manuel
               onManualSelect: _selectCityManually,
-              isManualSelection: _isManualSelection,
+              isManualSelection: location.isManualSelection,
             ),
             const SizedBox(height: 16),
             LivestockStatsRow(animals: _animals),
@@ -136,6 +120,8 @@ class _HayvancilikScreenState extends State<HayvancilikScreen> {
               onAnimalUpdated: _updateAnimal,
               onAnimalDeleted: _deleteAnimal,
             ),
+            const SizedBox(height: 16),
+            LivestockWeatherAlert(city: selectedCity),
           ],
         ),
       ),

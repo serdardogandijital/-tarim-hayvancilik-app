@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:provider/provider.dart';
 import '../widgets/weather_card.dart';
 import '../widgets/planting_calendar_card.dart';
 import '../widgets/location_card.dart';
@@ -10,7 +11,7 @@ import '../widgets/fields_carousel_card.dart';
 import '../models/city.dart';
 import '../models/field.dart';
 import '../services/field_storage_service.dart';
-import '../services/location_storage_service.dart';
+import '../providers/location_notifier.dart';
 import 'city_selector_screen.dart';
 import 'add_edit_field_screen.dart';
 
@@ -22,52 +23,13 @@ class TarimScreen extends StatefulWidget {
 }
 
 class _TarimScreenState extends State<TarimScreen> {
-  Position? _currentPosition;
-  String _currentAddress = 'Konum alınıyor...';
-  String? _selectedCity;
-  bool _isLoading = true;
-  bool _isManualSelection = false;
-  
   // Tarla verileri
   List<Field> _fields = [];
 
   @override
   void initState() {
     super.initState();
-    _loadSavedLocation();
     _loadFields();
-  }
-
-  Future<void> _loadSavedLocation() async {
-    final savedLocation = await LocationStorageService.loadLocation();
-    
-    if (savedLocation['city'] != null) {
-      // Kayıtlı konum var, onu kullan
-      setState(() {
-        _selectedCity = savedLocation['city'];
-        _currentAddress = savedLocation['address'];
-        _isManualSelection = savedLocation['isManual'];
-        _isLoading = false;
-        
-        if (savedLocation['latitude'] != null && savedLocation['longitude'] != null) {
-          _currentPosition = Position(
-            latitude: savedLocation['latitude'],
-            longitude: savedLocation['longitude'],
-            timestamp: DateTime.now(),
-            accuracy: 0,
-            altitude: 0,
-            altitudeAccuracy: 0,
-            heading: 0,
-            headingAccuracy: 0,
-            speed: 0,
-            speedAccuracy: 0,
-          );
-        }
-      });
-    } else {
-      // Kayıtlı konum yok, otomatik al
-      _getCurrentLocation();
-    }
   }
 
   Future<void> _loadFields() async {
@@ -131,19 +93,34 @@ class _TarimScreenState extends State<TarimScreen> {
     );
   }
 
+  Position? _positionFromLocation(LocationNotifier location) {
+    if (location.latitude == null || location.longitude == null) return null;
+    return Position(
+      latitude: location.latitude!,
+      longitude: location.longitude!,
+      timestamp: DateTime.now(),
+      accuracy: 0,
+      altitude: 0,
+      altitudeAccuracy: 0,
+      heading: 0,
+      headingAccuracy: 0,
+      speed: 0,
+      speedAccuracy: 0,
+    );
+  }
+
   Future<void> _getCurrentLocation() async {
-    setState(() {
-      _isLoading = true;
-      _isManualSelection = false;
-    });
+    final locationNotifier = context.read<LocationNotifier>();
+    locationNotifier.setLoading(true);
 
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        setState(() {
-          _currentAddress = 'Konum servisi kapalı - Manuel seçim yapın';
-          _isLoading = false;
-        });
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Konum servisi kapalı - Manuel seçim yapın.')),
+        );
+        locationNotifier.setLoading(false);
         return;
       }
 
@@ -151,19 +128,21 @@ class _TarimScreenState extends State<TarimScreen> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          setState(() {
-            _currentAddress = 'Konum izni reddedildi - Manuel seçim yapın';
-            _isLoading = false;
-          });
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Konum izni reddedildi - Manuel seçim yapın.')),
+          );
+          locationNotifier.setLoading(false);
           return;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        setState(() {
-          _currentAddress = 'Konum izni kalıcı olarak reddedildi - Manuel seçim yapın';
-          _isLoading = false;
-        });
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Konum izni kalıcı reddedildi - Manuel seçim yapın.')),
+        );
+        locationNotifier.setLoading(false);
         return;
       }
 
@@ -182,33 +161,30 @@ class _TarimScreenState extends State<TarimScreen> {
         String country = place.country ?? '';
         
         if (country != 'Turkey' && country != 'Türkiye' && cityName.length <= 3) {
-          setState(() {
-            _currentAddress = 'Simülatör konumu - Manuel seçim yapın';
-            _isLoading = false;
-          });
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Simülatör konumu - Manuel seçim yapın.')),
+          );
         } else {
-          // Konumu kaydet
-          await LocationStorageService.saveLocation(
+          await locationNotifier.updateLocation(
             city: cityName,
             address: cityName.isNotEmpty ? cityName : 'Konum tespit edildi',
             latitude: position.latitude,
             longitude: position.longitude,
             isManual: false,
+            notifyLoading: false,
           );
-          
-          setState(() {
-            _currentPosition = position;
-            _selectedCity = cityName;
-            _currentAddress = cityName.isNotEmpty ? cityName : 'Konum tespit edildi';
-            _isLoading = false;
-          });
         }
       }
     } catch (e) {
-      setState(() {
-        _currentAddress = 'Konum alınamadı - Manuel seçim yapın';
-        _isLoading = false;
-      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Konum alınamadı - Manuel seçim yapın.')),
+        );
+      }
+    }
+    if (mounted) {
+      locationNotifier.setLoading(false);
     }
   }
 
@@ -218,25 +194,22 @@ class _TarimScreenState extends State<TarimScreen> {
       MaterialPageRoute(builder: (context) => const CitySelectorScreen()),
     );
 
-    if (selectedCity != null) {
-      // Manuel seçimi kaydet
-      await LocationStorageService.saveLocation(
-        city: selectedCity.name,
-        address: selectedCity.name,
-        isManual: true,
-      );
-      
-      setState(() {
-        _selectedCity = selectedCity.name;
-        _currentAddress = selectedCity.name;
-        _isManualSelection = true;
-        _isLoading = false;
-      });
+    if (selectedCity != null && mounted) {
+      await context.read<LocationNotifier>().updateLocation(
+            city: selectedCity.name,
+            address: selectedCity.name,
+            isManual: true,
+            notifyLoading: false,
+          );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final location = context.watch<LocationNotifier>();
+    final position = _positionFromLocation(location);
+    final selectedCity = location.city;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F1E8),
       appBar: AppBar(
@@ -267,14 +240,14 @@ class _TarimScreenState extends State<TarimScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               LocationCard(
-                address: _currentAddress,
-                isLoading: _isLoading,
+                address: location.address,
+                isLoading: location.isLoading,
                 onRefresh: _getCurrentLocation,
                 onManualSelect: _selectCityManually,
-                isManualSelection: _isManualSelection,
+                isManualSelection: location.isManualSelection,
               ),
               const SizedBox(height: 16),
-              TodayPlantingCard(selectedCity: _selectedCity),
+              TodayPlantingCard(selectedCity: selectedCity),
               const SizedBox(height: 16),
               FieldsCarouselCard(
                 fields: _fields,
@@ -284,18 +257,18 @@ class _TarimScreenState extends State<TarimScreen> {
               ),
               const SizedBox(height: 16),
               WeatherCard(
-                position: _currentPosition,
-                selectedCity: _selectedCity,
+                position: position,
+                selectedCity: selectedCity,
               ),
               const SizedBox(height: 16),
               PlantingCalendarCard(
-                position: _currentPosition,
-                selectedCity: _selectedCity,
+                position: position,
+                selectedCity: selectedCity,
               ),
               const SizedBox(height: 16),
               RecommendationsCard(
-                position: _currentPosition,
-                selectedCity: _selectedCity,
+                position: position,
+                selectedCity: selectedCity,
               ),
             ],
           ),

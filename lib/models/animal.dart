@@ -13,6 +13,7 @@ class Animal {
   final List<MilkRecord> milkRecords;
   final double? dailyFeedAmount; // kg
   final double? monthlyFeedCost; // TL
+  final List<AnimalAttachment> attachments;
 
   Animal({
     required this.id,
@@ -27,8 +28,10 @@ class Animal {
     List<MilkRecord>? milkRecords,
     this.dailyFeedAmount,
     this.monthlyFeedCost,
-  }) : vaccines = vaccines ?? [],
-       milkRecords = milkRecords ?? [];
+    List<AnimalAttachment>? attachments,
+  })  : vaccines = vaccines ?? [],
+        milkRecords = milkRecords ?? [],
+        attachments = attachments ?? [];
 
   int get ageInYears {
     final now = DateTime.now();
@@ -64,6 +67,7 @@ class Animal {
       'milkRecords': milkRecords.map((m) => m.toJson()).toList(),
       'dailyFeedAmount': dailyFeedAmount,
       'monthlyFeedCost': monthlyFeedCost,
+      'attachments': attachments.map((a) => a.toJson()).toList(),
     };
   }
 
@@ -85,6 +89,10 @@ class Animal {
       milkRecords: (json['milkRecords'] as List?)?.map((m) => MilkRecord.fromJson(m)).toList(),
       dailyFeedAmount: json['dailyFeedAmount']?.toDouble(),
       monthlyFeedCost: json['monthlyFeedCost']?.toDouble(),
+      attachments: (json['attachments'] as List?)
+              ?.map((a) => AnimalAttachment.fromJson(a))
+              .toList() ??
+          [],
     );
   }
 
@@ -101,6 +109,7 @@ class Animal {
     List<MilkRecord>? milkRecords,
     double? dailyFeedAmount,
     double? monthlyFeedCost,
+    List<AnimalAttachment>? attachments,
   }) {
     return Animal(
       id: id ?? this.id,
@@ -115,6 +124,55 @@ class Animal {
       milkRecords: milkRecords ?? this.milkRecords,
       dailyFeedAmount: dailyFeedAmount ?? this.dailyFeedAmount,
       monthlyFeedCost: monthlyFeedCost ?? this.monthlyFeedCost,
+      attachments: attachments ?? this.attachments,
+    );
+  }
+}
+
+class AnimalAttachment {
+  final String id;
+  final String type; // photo, document, invoice etc.
+  final String name;
+  final String filePath;
+  final DateTime addedAt;
+
+  const AnimalAttachment({
+    required this.id,
+    required this.type,
+    required this.name,
+    required this.filePath,
+    required this.addedAt,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'type': type,
+        'name': name,
+        'filePath': filePath,
+        'addedAt': addedAt.toIso8601String(),
+      };
+
+  factory AnimalAttachment.fromJson(Map<String, dynamic> json) => AnimalAttachment(
+        id: json['id'],
+        type: json['type'] ?? 'document',
+        name: json['name'] ?? 'Belge',
+        filePath: json['filePath'],
+        addedAt: DateTime.parse(json['addedAt']),
+      );
+
+  AnimalAttachment copyWith({
+    String? id,
+    String? type,
+    String? name,
+    String? filePath,
+    DateTime? addedAt,
+  }) {
+    return AnimalAttachment(
+      id: id ?? this.id,
+      type: type ?? this.type,
+      name: name ?? this.name,
+      filePath: filePath ?? this.filePath,
+      addedAt: addedAt ?? this.addedAt,
     );
   }
 }
