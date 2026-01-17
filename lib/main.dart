@@ -40,7 +40,7 @@ class TarimHayvancilikApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const HomeScreen(),
+      home: const HomeScreen(initialIndex: 1),
     );
   }
 }

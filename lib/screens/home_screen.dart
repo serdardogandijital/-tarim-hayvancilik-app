@@ -1,26 +1,39 @@
 import 'package:flutter/material.dart';
 import 'tarim_screen.dart';
 import 'hayvancilik_screen.dart';
+import 'dashboard_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final int initialIndex;
+
+  const HomeScreen({super.key, this.initialIndex = 1});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0;
+  late int _selectedIndex;
 
-  final List<Widget> _screens = [
-    const TarimScreen(),
-    const HayvancilikScreen(),
+  final List<Widget> _screens = const [
+    TarimScreen(),
+    DashboardScreen(),
+    HayvancilikScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialIndex;
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_selectedIndex],
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _screens,
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
@@ -33,6 +46,11 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.agriculture_outlined),
             selectedIcon: Icon(Icons.agriculture),
             label: 'Tarım',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'Ana Sayfa',
           ),
           NavigationDestination(
             icon: Icon(Icons.pets_outlined),
