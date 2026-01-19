@@ -101,143 +101,201 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
   @override
   Widget build(BuildContext context) {
     return Container(
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFFE8F5E9), Color(0xFFF1F8E9)],
+          colors: [Color(0xFF4CAF50), Color(0xFF66BB6A)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.green.withOpacity(0.15),
+            color: Colors.green.withOpacity(0.3),
             blurRadius: 15,
-            offset: const Offset(0, 5),
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildHeader(),
+          const SizedBox(height: 16),
           _buildActionButtons(),
+          const SizedBox(height: 12),
+          _buildFooter(),
           if (_isAnalyzing) _buildLoadingState(),
           if (!_isAnalyzing && _currentAnalysis != null) _buildAnalysisResult(),
-          if (!_isAnalyzing && _currentAnalysis == null && _recentAnalyses.isEmpty)
-            _buildEmptyState(),
         ],
       ),
     );
   }
 
   Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.green[700],
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(Icons.eco, color: Colors.white, size: 24),
         ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.local_florist, color: Colors.white, size: 24),
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Bitki Doktoru AI',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  'Fotoğrafla bitki analizi',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (_recentAnalyses.isNotEmpty)
-            GestureDetector(
-              onTap: _showAnalysisHistory,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '${_recentAnalyses.length} analiz',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 10),
-                  ],
+        const SizedBox(width: 12),
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Bitki Analiz',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
+              SizedBox(height: 2),
+              Text(
+                'AI ile Bitki Hastalık Tespiti',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (_recentAnalyses.isNotEmpty)
+          GestureDetector(
+            onTap: _showAnalysisHistory,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${_recentAnalyses.length} analiz',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 10),
+                ],
+              ),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 
   Widget _buildActionButtons() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Expanded(
-            child: ElevatedButton.icon(
-              onPressed: _isAnalyzing ? null : () => _pickImage(ImageSource.camera),
-              icon: const Icon(Icons.camera_alt),
-              label: const Text('Kamera'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[600],
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+    return Row(
+      children: [
+        // Kamera butonu
+        Expanded(
+          child: GestureDetector(
+            onTap: _isAnalyzing ? null : () => _pickImage(ImageSource.camera),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.camera_alt,
+                    color: Colors.green[700],
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Kamera',
+                    style: TextStyle(
+                      color: Colors.green[700],
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: ElevatedButton.icon(
-              onPressed: _isAnalyzing ? null : () => _pickImage(ImageSource.gallery),
-              icon: const Icon(Icons.photo_library),
-              label: const Text('Galeri'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.green[700],
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                side: BorderSide(color: Colors.green[300]!, width: 1.5),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+        ),
+        
+        const SizedBox(width: 12),
+        
+        // Galeri butonu
+        Expanded(
+          child: GestureDetector(
+            onTap: _isAnalyzing ? null : () => _pickImage(ImageSource.gallery),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.5),
+                  width: 1.5,
                 ),
               ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.photo_library,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Galeri',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFooter() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.auto_awesome,
+            color: Colors.white70,
+            size: 14,
+          ),
+          SizedBox(width: 6),
+          Text(
+            'ChatGPT Vision AI ile analiz',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 11,
             ),
           ),
         ],
@@ -246,27 +304,24 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
   }
 
   Widget _buildLoadingState() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
+    return const Padding(
+      padding: EdgeInsets.only(top: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.green[600]!),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'AI bitkinizi analiz ediyor...',
-            style: TextStyle(
-              color: Colors.green[800],
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              strokeWidth: 2,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(width: 12),
           Text(
-            'Bu birkaç saniye sürebilir',
+            'Analiz ediliyor...',
             style: TextStyle(
-              color: Colors.grey[600],
+              color: Colors.white70,
               fontSize: 12,
             ),
           ),

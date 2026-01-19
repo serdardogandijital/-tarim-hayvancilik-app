@@ -10,7 +10,6 @@ import '../services/location_storage_service.dart';
 import '../services/weather_service.dart';
 import '../widgets/live_scale_card.dart';
 import '../widgets/plant_doctor_card.dart';
-import 'gallery_scale_screen.dart';
 import 'ai_chat_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -134,11 +133,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 8),
               _buildOverviewCard(dateText),
               const SizedBox(height: 16),
-              const PlantDoctorCard(),
-              const SizedBox(height: 16),
               const LiveScaleCard(),
-              const SizedBox(height: 12),
-              _buildGalleryButton(),
+              const SizedBox(height: 16),
+              const PlantDoctorCard(),
               const SizedBox(height: 80),
             ],
           ),
@@ -163,53 +160,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
         elevation: 4,
-      ),
-    );
-  }
-
-  Widget _buildGalleryButton() {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const GalleryScaleScreen(),
-          ),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.green[300]!, width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.green.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.photo_library_outlined,
-              color: Colors.green[700],
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Galeriden Görsel ile Canlı Baskül Tahmini',
-              style: TextStyle(
-                color: Colors.green[700],
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
