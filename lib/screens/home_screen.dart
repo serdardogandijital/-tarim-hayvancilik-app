@@ -23,10 +23,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final screens = const [
-      TarimScreen(),
-      DashboardScreen(),
-      HayvancilikScreen(),
+    final screens = [
+      const TarimScreen(),
+      DashboardScreen(
+        onNavigateToTab: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+      ),
+      const HayvancilikScreen(),
     ];
 
     return Scaffold(

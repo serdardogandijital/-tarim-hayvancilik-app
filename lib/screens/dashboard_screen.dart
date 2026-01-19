@@ -9,10 +9,14 @@ import '../services/field_storage_service.dart';
 import '../services/location_storage_service.dart';
 import '../services/weather_service.dart';
 import '../widgets/live_scale_card.dart';
+import '../widgets/plant_doctor_card.dart';
 import 'gallery_scale_screen.dart';
+import 'ai_chat_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final Function(int)? onNavigateToTab;
+  
+  const DashboardScreen({super.key, this.onNavigateToTab});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -122,7 +126,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -130,17 +134,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 8),
               _buildOverviewCard(dateText),
               const SizedBox(height: 16),
+              const PlantDoctorCard(),
+              const SizedBox(height: 16),
               const LiveScaleCard(),
               const SizedBox(height: 12),
               _buildGalleryButton(),
-              const SizedBox(height: 16),
-              Text(
-                'Yakında burada daha fazla özet kartı göstereceğiz.',
-                style: TextStyle(color: Colors.grey[600]),
-              ),
+              const SizedBox(height: 80),
             ],
           ),
         ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AIChatScreen(),
+            ),
+          );
+        },
+        backgroundColor: Colors.green[600],
+        icon: const Icon(Icons.medical_services, color: Colors.white),
+        label: const Text(
+          'Online Veteriner',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        elevation: 4,
       ),
     );
   }
@@ -240,9 +262,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(child: _buildStatChip('Tarlalar', _fieldCount.toString(), Icons.agriculture)),
+              Expanded(child: _buildStatChip('Tarlalar', _fieldCount.toString(), Icons.agriculture, onTap: () {
+                // Tarım sayfasına git (index 0)
+                widget.onNavigateToTab?.call(0);
+              })),
               const SizedBox(width: 6),
-              Expanded(child: _buildStatChip('Hayvanlar', _animalCount.toString(), Icons.pets)),
+              Expanded(child: _buildStatChip('Hayvanlar', _animalCount.toString(), Icons.pets, onTap: () {
+                // Hayvancılık sayfasına git (index 2)
+                widget.onNavigateToTab?.call(2);
+              })),
               const SizedBox(width: 6),
               Expanded(child: _buildStatChip('Yaklaşan', _upcomingCount.toString(), Icons.notifications_active)),
             ],
@@ -334,37 +362,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Widget _buildStatChip(String title, String value, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.85),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: Colors.green[700]),
-          const SizedBox(width: 4),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
+  Widget _buildStatChip(String title, String value, IconData icon, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.85),
+          borderRadius: BorderRadius.circular(12),
+          border: onTap != null ? Border.all(color: Colors.green.withOpacity(0.3), width: 1) : null,
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: Colors.green[700]),
+            const SizedBox(width: 4),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Colors.grey[600],
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey[600],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
