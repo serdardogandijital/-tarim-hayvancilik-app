@@ -4,6 +4,7 @@ import '../models/field.dart';
 
 class FieldStorageService {
   static const String _fieldsKey = 'fields_data';
+  static const String _isInitializedKey = 'fields_initialized';
 
   // Tarlaları kaydet
   static Future<void> saveFields(List<Field> fields) async {
@@ -16,17 +17,31 @@ class FieldStorageService {
   static Future<List<Field>> loadFields() async {
     final prefs = await SharedPreferences.getInstance();
     final fieldsString = prefs.getString(_fieldsKey);
+    final isInitialized = prefs.getBool(_isInitializedKey) ?? false;
     
+    // Eğer daha önce hiç başlatılmamışsa, demo verileri göster ve başlatıldı olarak işaretle
+    if (!isInitialized && (fieldsString == null || fieldsString.isEmpty)) {
+      final defaultFields = _getDefaultFields();
+      await saveFields(defaultFields);
+      await prefs.setBool(_isInitializedKey, true);
+      return defaultFields;
+    }
+    
+    // Başlatılmış ama veri yoksa boş liste döndür
     if (fieldsString == null || fieldsString.isEmpty) {
-      return _getDefaultFields(); // İlk açılışta demo veriler
+      return [];
     }
     
     try {
       final List<dynamic> fieldsJson = jsonDecode(fieldsString);
+      // Başarılı yükleme sonrası initialized olarak işaretle
+      if (!isInitialized) {
+        await prefs.setBool(_isInitializedKey, true);
+      }
       return fieldsJson.map((json) => Field.fromJson(json)).toList();
     } catch (e) {
       print('Tarla verileri yüklenirken hata: $e');
-      return _getDefaultFields();
+      return [];
     }
   }
 

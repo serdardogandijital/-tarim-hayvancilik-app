@@ -86,6 +86,116 @@ class _AIChatScreenState extends State<AIChatScreen> {
     }
   }
 
+  Future<void> _showApiKeyDialog() async {
+    final controller = TextEditingController();
+    final currentKey = await AIChatService.getApiKey();
+    if (currentKey != null) {
+      controller.text = currentKey;
+    }
+    
+    if (!mounted) return;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.key, color: Colors.green),
+            SizedBox(width: 8),
+            Text('API Key Ayarları'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'ChatGPT API Key girin:',
+              style: TextStyle(fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                hintText: 'sk-...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                prefixIcon: const Icon(Icons.vpn_key),
+              ),
+              obscureText: true,
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, size: 16, color: Colors.blue),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'API key\'i platform.openai.com adresinden alabilirsiniz.',
+                      style: TextStyle(fontSize: 12, color: Colors.blue),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          if (currentKey != null && currentKey.isNotEmpty)
+            TextButton(
+              onPressed: () async {
+                await AIChatService.clearApiKey();
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('API Key silindi'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Sil', style: TextStyle(color: Colors.red)),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('İptal'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final key = controller.text.trim();
+              if (key.isNotEmpty) {
+                await AIChatService.setApiKey(key);
+                _aiService = AIChatService(); // Yeni servis oluştur
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('API Key kaydedildi!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Kaydet'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _messageController.dispose();
@@ -127,6 +237,11 @@ class _AIChatScreenState extends State<AIChatScreen> {
         backgroundColor: const Color(0xFFF5F1E8),
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'API Key Ayarları',
+            onPressed: _showApiKeyDialog,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {

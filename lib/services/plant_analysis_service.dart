@@ -1,17 +1,32 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/plant_analysis.dart';
 
 class PlantAnalysisService {
-  static const String _apiKey = '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';
   static const String _apiUrl = 'https://api.openai.com/v1/chat/completions';
+  static const String _apiKeyPrefKey = 'openai_api_key';
+  static const String _defaultApiKey = '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';
 
   PlantAnalysisService();
+
+  // API Key'i SharedPreferences'tan al (yoksa default key kullan)
+  static Future<String?> _getApiKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedKey = prefs.getString(_apiKeyPrefKey);
+    return (savedKey != null && savedKey.isNotEmpty) ? savedKey : _defaultApiKey;
+  }
 
   Future<PlantAnalysis> analyzePlant(String imagePath) async {
     try {
       print('🌿 Bitki analizi başlıyor: $imagePath');
+      
+      // API key kontrolü
+      final apiKey = await _getApiKey();
+      if (apiKey == null || apiKey.isEmpty) {
+        throw Exception('API key gerekli. Lütfen ayarlardan API key girin.');
+      }
       
       final imageFile = File(imagePath);
       if (!await imageFile.exists()) {
@@ -24,29 +39,38 @@ class PlantAnalysisService {
       final base64Image = base64Encode(imageBytes);
       print('🔄 Base64 encode tamamlandı');
 
-      final prompt = '''Bu bitki fotoğrafını detaylı analiz et ve aşağıdaki bilgileri JSON formatında ver:
+      final prompt = '''Bu fotoğrafı analiz et. Fotoğrafta şunlardan biri olabilir:
+- Çiçek veya süs bitkisi
+- Tarla ürünü (arpa, buğday, yonca, fiğ, mısır, ayçiçeği, pamuk, şeker pancarı, patates, domates, biber, patlıcan, salatalık, fasulye, nohut, mercimek, çeltik vb.)
+- Meyve ağacı veya meyve
+- Sebze
+- Yabani ot
+
+Fotoğraftaki bitkiyi/ürünü tespit et ve aşağıdaki bilgileri JSON formatında ver:
 
 {
-  "plantName": "Bitki adı (Türkçe)",
+  "plantName": "Bitki/Ürün adı (Türkçe) - örn: Arpa, Buğday, Yonca, Fiğ, Gül, Domates vb.",
   "scientificName": "Bilimsel adı (Latince)",
-  "status": "Sağlıklı/Hastalıklı/Zararlı Var/Besin Eksikliği",
+  "status": "Sağlıklı/Hastalıklı/Zararlı Var/Besin Eksikliği/Olgunlaşmamış/Hasat Zamanı",
   "confidence": 0.95,
-  "diseases": ["Tespit edilen hastalıklar listesi"],
+  "diseases": ["Tespit edilen hastalıklar listesi - yoksa boş array"],
   "treatments": ["Tedavi önerileri - pratik ve uygulanabilir"],
-  "careAdvice": ["Genel bakım tavsiyeleri"],
+  "careAdvice": ["Genel bakım tavsiyeleri - sulama, gübreleme, ilaçlama vb."],
   "preventionTips": ["Hastalık ve zararlı önleme ipuçları"],
-  "wateringSchedule": "Sulama sıklığı (örn: Günde 1 kez, Haftada 2 kez)",
-  "fertilizingSchedule": "Gübreleme sıklığı (örn: Ayda 1 kez)",
-  "harvestTime": "Hasat zamanı (varsa, yoksa null)"
+  "wateringSchedule": "Sulama sıklığı (örn: Günde 1 kez, Haftada 2 kez, Yağmur sulaması yeterli)",
+  "fertilizingSchedule": "Gübreleme sıklığı (örn: Ekimde, Kardeşlenmede, Ayda 1 kez)",
+  "harvestTime": "Tahmini hasat zamanı veya olgunluk durumu"
 }
 
 Kurallar:
 - Türkçe yanıt ver
 - Türkiye iklim koşullarına uygun öneriler sun
+- Tarla ürünleri için: ekim zamanı, hasat zamanı, verim artırma önerileri ver
 - Pratik ve çiftçi dostu dil kullan
 - Organik çözümleri önceliklendir
-- Acil durumları belirt
-- JSON formatına kesinlikle uy''';
+- Acil durumları belirt (don riski, kuraklık, hastalık yayılması vb.)
+- JSON formatına kesinlikle uy
+- Bitkiyi tanıyamasan bile en yakın tahmini yap, "bulunamadı" deme''';
 
       print('🤖 ChatGPT Vision API çağrılıyor...');
       
@@ -77,7 +101,7 @@ Kurallar:
         Uri.parse(_apiUrl),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_apiKey',
+          'Authorization': 'Bearer $apiKey',
         },
         body: jsonEncode(requestBody),
       );

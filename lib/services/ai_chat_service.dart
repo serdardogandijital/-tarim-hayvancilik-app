@@ -1,11 +1,39 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AIChatService {
-  static const String _apiKey = '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';
   static const String _apiUrl = 'https://api.openai.com/v1/chat/completions';
+  static const String _apiKeyPrefKey = 'openai_api_key';
+  static const String _defaultApiKey = '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';
   
+  String? _apiKey;
   final List<Map<String, dynamic>> _chatHistory = [];
+  
+  // API Key'i SharedPreferences'tan yükle (yoksa default key kullan)
+  static Future<String?> getApiKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedKey = prefs.getString(_apiKeyPrefKey);
+    return (savedKey != null && savedKey.isNotEmpty) ? savedKey : _defaultApiKey;
+  }
+  
+  // API Key'i SharedPreferences'a kaydet
+  static Future<void> setApiKey(String apiKey) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_apiKeyPrefKey, apiKey);
+  }
+  
+  // API Key'i sil
+  static Future<void> clearApiKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_apiKeyPrefKey);
+  }
+  
+  // API Key ayarlı mı kontrol et
+  static Future<bool> hasApiKey() async {
+    final key = await getApiKey();
+    return key != null && key.isNotEmpty;
+  }
   
   static const String _systemPrompt = '''Sen deneyimli bir veteriner hekim AI asistanısın. 
 Türkiye'deki çiftçilere ve hayvancılara online veteriner hizmeti veriyorsun. 
@@ -33,6 +61,25 @@ Kurallar:
   
   Future<String> sendMessage(String message) async {
     try {
+      // API key'i kontrol et
+      if (_apiKey == null || _apiKey!.isEmpty) {
+        _apiKey = await getApiKey();
+      }
+      
+      if (_apiKey == null || _apiKey!.isEmpty) {
+        return '''🔑 API Key Gerekli!
+
+Online Veteriner hizmetini kullanmak için ChatGPT API key girmeniz gerekiyor.
+
+📝 Nasıl API Key Alınır:
+1. https://platform.openai.com/api-keys adresine gidin
+2. Hesap oluşturun veya giriş yapın
+3. "Create new secret key" butonuna tıklayın
+4. Oluşan key'i kopyalayın
+
+⚙️ API Key'i girmek için sağ üstteki ayarlar (⚙️) butonuna tıklayın.''';
+      }
+      
       _chatHistory.add({
         'role': 'user',
         'content': message,
@@ -54,7 +101,20 @@ Kurallar:
         body: jsonEncode(requestBody),
       );
 
+      if (response.statusCode == 401) {
+        _chatHistory.removeLast(); // Kullanıcı mesajını geri al
+        return '''❌ API Key Geçersiz!
+
+Girdiğiniz API key çalışmıyor. Lütfen kontrol edin:
+- Key doğru kopyalandı mı?
+- Key aktif mi?
+- Hesabınızda kredi var mı?
+
+⚙️ Yeni key girmek için ayarlar butonuna tıklayın.''';
+      }
+      
       if (response.statusCode != 200) {
+        _chatHistory.removeLast();
         throw Exception('API hatası: ${response.statusCode}');
       }
 
@@ -68,17 +128,11 @@ Kurallar:
 
       return responseText;
     } catch (e) {
-      if (e.toString().contains('API') || e.toString().contains('key')) {
-        return '''🔑 API Key Hatası!
-
-ChatGPT API kullanmak için:
-1. https://platform.openai.com/api-keys adresine git
-2. API key oluştur
-3. lib/services/ai_chat_service.dart dosyasında _apiKey değişkenine ekle
-
-Şimdilik demo moddasınız.''';
+      // Son eklenen kullanıcı mesajını kaldır
+      if (_chatHistory.isNotEmpty && _chatHistory.last['role'] == 'user') {
+        _chatHistory.removeLast();
       }
-      return 'Bir hata oluştu: ${e.toString()}';
+      return '⚠️ Bağlantı hatası oluştu. Lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.';
     }
   }
   

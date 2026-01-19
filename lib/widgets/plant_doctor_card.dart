@@ -33,9 +33,8 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
       if (mounted) {
         setState(() {
           _recentAnalyses = analyses.take(3).toList();
-          if (_recentAnalyses.isNotEmpty) {
-            _currentAnalysis = _recentAnalyses.first;
-          }
+          // Uygulama açıldığında son analizi gösterme - sadece yeni analiz yapıldığında göster
+          // _currentAnalysis = null olarak kalacak
         });
       }
     } catch (e) {
@@ -174,18 +173,28 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
             ),
           ),
           if (_recentAnalyses.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                '${_recentAnalyses.length} analiz',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+            GestureDetector(
+              onTap: _showAnalysisHistory,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${_recentAnalyses.length} analiz',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 10),
+                  ],
                 ),
               ),
             ),
@@ -274,7 +283,7 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
           Icon(Icons.eco, size: 48, color: Colors.green[300]),
           const SizedBox(height: 12),
           Text(
-            'Henüz analiz yok',
+            _recentAnalyses.isEmpty ? 'Henüz analiz yok' : 'Yeni analiz için fotoğraf çekin',
             style: TextStyle(
               color: Colors.grey[700],
               fontSize: 14,
@@ -289,6 +298,24 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
               fontSize: 12,
             ),
           ),
+          if (_recentAnalyses.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: () {
+                setState(() {
+                  _currentAnalysis = _recentAnalyses.first;
+                });
+              },
+              icon: Icon(Icons.history, size: 16, color: Colors.green[600]),
+              label: Text(
+                'Son analizi göster (${_recentAnalyses.length})',
+                style: TextStyle(
+                  color: Colors.green[600],
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -521,5 +548,172 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
     if (status.contains('Hastalık') || status.contains('Zararlı')) return Colors.red;
     if (status.contains('Eksiklik')) return Colors.orange;
     return Colors.grey;
+  }
+
+  void _showAnalysisHistory() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.green[700],
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.history, color: Colors.white),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Geçmiş Analizler',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: _recentAnalyses.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.eco, size: 64, color: Colors.grey[300]),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Henüz analiz yok',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _recentAnalyses.length,
+                      itemBuilder: (context, index) {
+                        final analysis = _recentAnalyses[index];
+                        return _buildHistoryItem(analysis, index);
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHistoryItem(PlantAnalysis analysis, int index) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.pop(context);
+        setState(() {
+          _currentAnalysis = analysis;
+        });
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[200]!),
+        ),
+        child: Row(
+          children: [
+            if (File(analysis.imagePath).existsSync())
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.file(
+                  File(analysis.imagePath),
+                  width: 60,
+                  height: 60,
+                  fit: BoxFit.cover,
+                ),
+              )
+            else
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: Colors.green[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.eco, color: Colors.green[600]),
+              ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    analysis.plantName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _getStatusColor(analysis.status).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          analysis.status,
+                          style: TextStyle(
+                            color: _getStatusColor(analysis.status),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    DateFormat('dd MMM yyyy, HH:mm', 'tr_TR').format(analysis.timestamp),
+                    style: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: Colors.grey[400]),
+          ],
+        ),
+      ),
+    );
   }
 }

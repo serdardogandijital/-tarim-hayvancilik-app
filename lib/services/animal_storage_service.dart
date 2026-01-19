@@ -4,6 +4,7 @@ import '../models/animal.dart';
 
 class AnimalStorageService {
   static const String _animalsKey = 'animals_data';
+  static const String _isInitializedKey = 'animals_initialized';
 
   // Hayvanları kaydet
   static Future<void> saveAnimals(List<Animal> animals) async {
@@ -16,6 +17,12 @@ class AnimalStorageService {
   static Future<List<Animal>> loadAnimals() async {
     final prefs = await SharedPreferences.getInstance();
     final animalsString = prefs.getString(_animalsKey);
+    final isInitialized = prefs.getBool(_isInitializedKey) ?? false;
+    
+    // İlk açılışta initialized olarak işaretle
+    if (!isInitialized) {
+      await prefs.setBool(_isInitializedKey, true);
+    }
     
     if (animalsString == null || animalsString.isEmpty) {
       return [];
