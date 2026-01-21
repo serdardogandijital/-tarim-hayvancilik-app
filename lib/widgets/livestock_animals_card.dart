@@ -66,11 +66,21 @@ class LivestockAnimalsCard extends StatelessWidget {
                   ),
                 ],
               ),
-              IconButton(
-                icon: const Icon(Icons.add_circle_outline),
-                onPressed: () => _addAnimal(context),
-                color: Theme.of(context).colorScheme.primary,
-                tooltip: 'Hayvan Ekle',
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.search),
+                    tooltip: 'Hayvan ara',
+                    onPressed:
+                        animals.isEmpty ? null : () => _showAnimalSearch(context),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_outline),
+                    onPressed: () => _addAnimal(context),
+                    color: Theme.of(context).colorScheme.primary,
+                    tooltip: 'Hayvan Ekle',
+                  ),
+                ],
               ),
             ],
           ),
@@ -320,6 +330,130 @@ class LivestockAnimalsCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  void _showAnimalSearch(BuildContext context) {
+    if (animals.isEmpty) return;
+
+    final parentContext = context;
+    final searchController = TextEditingController();
+    List<Animal> filteredAnimals = List<Animal>.from(animals);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setModalState) {
+            void filter(String value) {
+              setModalState(() {
+                final query = value.toLowerCase();
+                filteredAnimals = animals
+                    .where((animal) => animal.name.toLowerCase().contains(query))
+                    .toList();
+              });
+            }
+
+            return SizedBox(
+              height: MediaQuery.of(sheetContext).size.height * 0.75,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  top: 16,
+                  bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 16,
+                ),
+                child: Column(
+                  crossSection_alignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 48,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Hayvan Ara',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: searchController,
+                      autofocus: true,
+                      onChanged: filter,
+                      decoration: InputDecoration(
+                        hintText: 'Hayvan adını yazın...',
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: searchController.text.isEmpty
+                            ? null
+                            : IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  searchController.clear();
+                                  filter('');
+                                },
+                              ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: filteredAnimals.isEmpty
+                          ? Center(
+                              child: Text(
+                                'Eşleşen hayvan bulunamadı',
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                            )
+                          : ListView.separated(
+                              itemCount: filteredAnimals.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 8),
+                              itemBuilder: (context, index) {
+                                final animal = filteredAnimals[index];
+                                return ListTile(
+                                  tileColor: Colors.grey[50],
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    side: BorderSide(color: Colors.grey[200]!),
+                                  ),
+                                  title: Text(
+                                    animal.name,
+                                    style:
+                                        const TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                  subtitle: Text('${animal.type} • ${animal.breed}'),
+                                  trailing: const Icon(Icons.chevron_right),
+                                  onTap: () {
+                                    Navigator.pop(sheetContext);
+                                    Future.microtask(
+                                      () => _openAnimalDetail(parentContext, animal),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
