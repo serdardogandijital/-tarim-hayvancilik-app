@@ -1,6 +1,6 @@
 [build]
-  command = "./netlify-build.sh"
-  publish = "build/web"
+  command = "echo 'Static pages only'"
+  publish = "pages"
 
 [[redirects]]
   from = "/*"
