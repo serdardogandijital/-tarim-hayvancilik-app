@@ -143,6 +143,13 @@ flutter build ios --release
 
 Herhangi bir sorun veya öneri için lütfen iletişime geçin.
 
+## 📄 Hukuki Dokümanlar
+
+- [Gizlilik Politikası](docs/privacy_policy.md)
+- [Kullanım Koşulları](docs/terms_of_use.md)
+
+GitHub Pages üzerinden yayınlamak için repo ayarlarından **Settings → Pages** menüsüne gidin, "Deploy from a branch" seçip `main` dalındaki `docs/` klasörünü belirtin. Yayınlandıktan sonra oluşan URL'yi App Privacy formuna ekleyebilirsiniz.
+
 ## 📄 Lisans
 
 Bu proje özel kullanım içindir.
