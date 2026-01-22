@@ -5,10 +5,12 @@ import 'package:provider/provider.dart';
 
 import 'providers/location_notifier.dart';
 import 'screens/home_screen.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('tr_TR', null);
+  await NotificationService.instance.initialize();
   runApp(const TarimHayvancilikApp());
 }
 

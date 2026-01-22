@@ -13,7 +13,7 @@ Modern, şık ve kullanıcı dostu bir mobil uygulama ile tarım ve hayvancılı
 ### 🐄 Hayvancılık Modülü
 - **Hayvan Kayıtları**: Tüm hayvanlarınızı sistematik şekilde kaydedin
 - **Doğum Takibi**: Hayvanların doğum tarihlerini ve son doğum bilgilerini takip edin
-- **Öğüre Takvimi**: Sonraki öğüre gelme tarihlerini hatırlayın
+- **Kızgınlık Takibi**: Sonraki kızgınlık dönemlerini hatırlayın
 - **Detaylı Bilgiler**: Her hayvan için yaş, cins, tür ve notlar
 
 ## 🚀 Kurulum ve Çalıştırma
@@ -135,7 +135,7 @@ flutter build ios --release
 - [ ] Gerçek zamanlı hava durumu API entegrasyonu
 - [ ] Bulut senkronizasyonu
 - [ ] Fotoğraf ekleme özelliği
-- [ ] Bildirimler (öğüre tarihi hatırlatmaları)
+- [ ] Bildirimler (kızgınlık ve tarla tarih hatırlatmaları)
 - [ ] Raporlama ve istatistikler
 - [ ] Çoklu dil desteği
 

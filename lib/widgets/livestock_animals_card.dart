@@ -196,7 +196,9 @@ class LivestockAnimalsCard extends StatelessWidget {
                   ),
                   if (animal.nextHeatDate != null)
                     Text(
-                      '${animal.daysUntilNextHeat} gün sonra kızgınlık',
+                      animal.daysUntilNextHeat != null && animal.daysUntilNextHeat! > 0
+                          ? '${animal.daysUntilNextHeat} gün sonra kızgınlık takibi'
+                          : 'Bugün kızgınlık takibi',
                       style: TextStyle(
                         fontSize: 11,
                         color: Colors.orange[700],

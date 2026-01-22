@@ -6,6 +6,7 @@ import '../widgets/location_card.dart';
 import '../widgets/livestock_stats_row.dart';
 import '../widgets/livestock_animals_card.dart';
 import '../services/animal_storage_service.dart';
+import '../services/notification_service.dart';
 import '../models/city.dart';
 import '../widgets/livestock_weather_alert.dart';
 import '../providers/location_notifier.dart';
@@ -45,6 +46,9 @@ class _HayvancilikScreenState extends State<HayvancilikScreen> {
 
   Future<void> _loadAnimals() async {
     final loadedAnimals = await AnimalStorageService.loadAnimals();
+    for (final animal in loadedAnimals) {
+      await NotificationService.instance.scheduleAnimalNotifications(animal);
+    }
     setState(() {
       _animals = loadedAnimals;
     });
@@ -52,6 +56,7 @@ class _HayvancilikScreenState extends State<HayvancilikScreen> {
 
   Future<void> _addAnimal(Animal animal) async {
     await AnimalStorageService.addAnimal(animal);
+    await NotificationService.instance.scheduleAnimalNotifications(animal);
     setState(() {
       _animals.add(animal);
     });
@@ -59,6 +64,7 @@ class _HayvancilikScreenState extends State<HayvancilikScreen> {
 
   Future<void> _deleteAnimal(String id) async {
     await AnimalStorageService.deleteAnimal(id);
+    NotificationService.instance.cancelNotificationsForEntity(id);
     setState(() {
       _animals.removeWhere((animal) => animal.id == id);
     });
@@ -66,6 +72,7 @@ class _HayvancilikScreenState extends State<HayvancilikScreen> {
 
   Future<void> _updateAnimal(Animal updatedAnimal) async {
     await AnimalStorageService.updateAnimal(updatedAnimal);
+    await NotificationService.instance.scheduleAnimalNotifications(updatedAnimal);
     setState(() {
       final index = _animals.indexWhere((a) => a.id == updatedAnimal.id);
       if (index != -1) {

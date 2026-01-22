@@ -11,6 +11,7 @@ import '../widgets/fields_carousel_card.dart';
 import '../models/city.dart';
 import '../models/field.dart';
 import '../services/field_storage_service.dart';
+import '../services/notification_service.dart';
 import '../providers/location_notifier.dart';
 import 'add_edit_field_screen.dart';
 import 'all_fields_map_screen.dart';
@@ -35,6 +36,9 @@ class _TarimScreenState extends State<TarimScreen> {
 
   Future<void> _loadFields() async {
     final loadedFields = await FieldStorageService.loadFields();
+    for (final field in loadedFields) {
+      await NotificationService.instance.scheduleFieldNotifications(field);
+    }
     setState(() {
       _fields = loadedFields;
     });
@@ -50,6 +54,7 @@ class _TarimScreenState extends State<TarimScreen> {
     
     if (result != null && result is Field) {
       await FieldStorageService.addField(result);
+      await NotificationService.instance.scheduleFieldNotifications(result);
       setState(() {
         _fields.add(result);
       });
@@ -76,6 +81,7 @@ class _TarimScreenState extends State<TarimScreen> {
 
   Future<void> _updateField(Field updatedField) async {
     await FieldStorageService.updateField(updatedField);
+    await NotificationService.instance.scheduleFieldNotifications(updatedField);
     setState(() {
       final index = _fields.indexWhere((f) => f.id == updatedField.id);
       if (index != -1) {
@@ -93,6 +99,8 @@ class _TarimScreenState extends State<TarimScreen> {
 
   Future<void> _deleteField(Field field) async {
     await FieldStorageService.deleteField(field.id);
+    await NotificationService.instance
+        .cancelNotificationsForEntity(field.id, scopes: NotificationService.fieldScopes);
     setState(() {
       _fields.removeWhere((f) => f.id == field.id);
     });

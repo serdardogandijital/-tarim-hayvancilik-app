@@ -343,7 +343,7 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
             ),
             const SizedBox(height: 16),
             ListTile(
-              title: const Text('Son Doğum Tarihi (Opsiyonel)'),
+              title: const Text('Son Doğurma Tarihi (Opsiyonel)'),
               subtitle: Text(_lastBirthDate != null
                   ? DateFormat('dd MMMM yyyy', 'tr_TR').format(_lastBirthDate!)
                   : 'Seçilmedi'),
@@ -366,7 +366,7 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
             ),
             const SizedBox(height: 16),
             ListTile(
-              title: const Text('Sonraki Öğüre Tarihi (Opsiyonel)'),
+              title: const Text('Sonraki Kızgınlık Takibi (Opsiyonel)'),
               subtitle: Text(_nextHeatDate != null
                   ? DateFormat('dd MMMM yyyy', 'tr_TR').format(_nextHeatDate!)
                   : 'Seçilmedi'),

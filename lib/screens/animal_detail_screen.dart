@@ -265,19 +265,19 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
               if (_animal.lastBirthDate != null)
                 _buildInfoRow(
                   Icons.child_care,
-                  'Son Doğum',
+                  'Son Doğurma Tarihi',
                   DateFormat('dd MMMM yyyy', 'tr_TR').format(_animal.lastBirthDate!),
                 ),
               if (_animal.daysSinceLastBirth != null)
                 _buildInfoRow(
                   Icons.access_time,
-                  'Son Doğumdan İtibaren',
+                  'Son Doğurmadan İtibaren',
                   '${_animal.daysSinceLastBirth} gün',
                 ),
               if (_animal.nextHeatDate != null)
                 _buildInfoRow(
                   Icons.event,
-                  'Sonraki Öğüre',
+                  'Sonraki Kızgınlık Takibi',
                   DateFormat('dd MMMM yyyy', 'tr_TR').format(_animal.nextHeatDate!),
                 ),
               if (_animal.daysUntilNextHeat != null)
