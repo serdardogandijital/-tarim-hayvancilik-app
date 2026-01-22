@@ -38,4 +38,4 @@ Uygulama, tarla ve hayvan yönetimi için kayıt tutma, bildirim planlama ve har
 - Uyuşmazlıklar İstanbul (Anadolu) mahkemelerinde çözülecektir.
 
 ## 10. İletişim
-Her türlü talep ve şikayet için: **destek@tarimhayvancilikapp.com**
+Her türlü talep ve şikayet için: **hi@ajanszero.com** | Tel: **+905434301320**

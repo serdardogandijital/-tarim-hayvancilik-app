@@ -43,6 +43,6 @@ Bu gizlilik politikası, Tarım & Hayvancılık Yönetim Uygulaması ("Uygulama"
 - Güncellemeleri README ve uygulama sürüm notlarında duyururuz. Politika değişiklikleri yayımlandığı anda yürürlüğe girer.
 
 ## 9. İletişim
-Sorularınız için: **destek@tarimhayvancilikapp.com**
+Sorularınız için: **hi@ajanszero.com** | Tel: **+905434301320**
 
 Bu politikayı kabul etmiyorsanız lütfen uygulamayı kullanmayın.
