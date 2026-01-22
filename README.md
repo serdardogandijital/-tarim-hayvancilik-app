@@ -148,7 +148,7 @@ Herhangi bir sorun veya öneri için lütfen iletişime geçin.
 - [Gizlilik Politikası](docs/privacy_policy.md)
 - [Kullanım Koşulları](docs/terms_of_use.md)
 
-GitHub Pages üzerinden yayınlamak için repo ayarlarından **Settings → Pages** menüsüne gidin, "Deploy from a branch" seçip `main` dalındaki `docs/` klasörünü belirtin. Yayınlandıktan sonra oluşan URL'yi App Privacy formuna ekleyebilirsiniz.
+Bu repo, `.github/workflows/pages.yml` ile `docs/` klasörünü otomatik olarak GitHub Pages'e deploy eder. İlk kez etkinleştirmek için repo ayarlarından **Settings → Pages** menüsüne gidip "GitHub Actions" modunu seçin. Workflow her `main` push'unda güncel politikaları yayınlayacak; oluşan URL'yi App Privacy formunda kullanabilirsiniz.
 
 ## 📄 Lisans
 

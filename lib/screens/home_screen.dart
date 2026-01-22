@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'tarim_screen.dart';
 import 'hayvancilik_screen.dart';
 import 'dashboard_screen.dart';
+import '../services/ad_service.dart';
 
 class HomeScreen extends StatefulWidget {
   final int initialIndex;
@@ -19,6 +20,9 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AdService.instance.maybeShowStartupRewardedAd();
+    });
   }
 
   @override
