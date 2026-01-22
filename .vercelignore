@@ -1,0 +1,17 @@
+.git
+.github
+.vscode
+.idea
+*.md
+!README.md
+android
+ios
+linux
+macos
+windows
+test
+build
+.dart_tool
+.packages
+.pub
+.pub-cache

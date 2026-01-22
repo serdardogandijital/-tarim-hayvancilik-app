@@ -1,0 +1,6 @@
+{
+  "buildCommand": "./build.sh",
+  "outputDirectory": "build/web",
+  "framework": null,
+  "installCommand": "echo 'Using build.sh for installation'"
+}
