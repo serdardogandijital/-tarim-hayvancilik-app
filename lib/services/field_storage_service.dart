@@ -85,6 +85,10 @@ class FieldStorageService {
         currentCrop: 'Buğday',
         plantingDate: DateTime(2025, 10, 15),
         harvestDate: DateTime(2026, 6, 25),
+        latitude: 39.92077,
+        longitude: 32.85411,
+        locationName: 'Ankara • Gölbaşı',
+        ownership: FieldOwnership.own,
         tasks: [
           Task(
             id: '1',
@@ -127,6 +131,10 @@ class FieldStorageService {
         currentCrop: 'Mısır',
         plantingDate: DateTime(2025, 5, 10),
         harvestDate: DateTime(2025, 9, 20),
+        latitude: 38.41885,
+        longitude: 27.12872,
+        locationName: 'İzmir • Konak',
+        ownership: FieldOwnership.rented,
         tasks: [
           Task(
             id: '6',
@@ -167,6 +175,9 @@ class FieldStorageService {
         id: '3',
         name: 'Tarla 3',
         area: 3.0,
+        latitude: 37.00002,
+        longitude: 35.32133,
+        locationName: 'Adana',
       ),
     ];
   }

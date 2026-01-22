@@ -368,7 +368,7 @@ class LivestockAnimalsCard extends StatelessWidget {
                   bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 16,
                 ),
                 child: Column(
-                  crossSection_alignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Center(
                       child: Container(

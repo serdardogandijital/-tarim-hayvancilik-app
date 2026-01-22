@@ -12,8 +12,9 @@ import '../models/city.dart';
 import '../models/field.dart';
 import '../services/field_storage_service.dart';
 import '../providers/location_notifier.dart';
-import 'city_selector_screen.dart';
 import 'add_edit_field_screen.dart';
+import 'all_fields_map_screen.dart';
+import 'city_selector_screen.dart';
 
 class TarimScreen extends StatefulWidget {
   const TarimScreen({super.key});
@@ -60,6 +61,17 @@ class _TarimScreenState extends State<TarimScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _openAllFieldsMap() async {
+    final latestFields = await FieldStorageService.loadFields();
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AllFieldsMapScreen(fields: latestFields),
+      ),
+    );
   }
 
   Future<void> _updateField(Field updatedField) async {
@@ -254,6 +266,7 @@ class _TarimScreenState extends State<TarimScreen> {
                 onAddField: _addNewField,
                 onFieldUpdated: _updateField,
                 onFieldDeleted: _deleteField,
+                onViewAllFields: _openAllFieldsMap,
               ),
               const SizedBox(height: 16),
               WeatherCard(

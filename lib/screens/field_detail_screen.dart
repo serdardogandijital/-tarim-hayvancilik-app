@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
+
 import '../models/field.dart';
 import '../services/field_storage_service.dart';
 import 'add_edit_field_screen.dart';
+import 'field_location_picker_screen.dart';
 
 class FieldDetailScreen extends StatefulWidget {
   final Field field;
@@ -106,15 +110,7 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
   }
 
   Future<void> _saveTasksToStorage() async {
-    final updatedField = Field(
-      id: widget.field.id,
-      name: widget.field.name,
-      area: widget.field.area,
-      currentCrop: widget.field.currentCrop,
-      plantingDate: widget.field.plantingDate,
-      harvestDate: widget.field.harvestDate,
-      tasks: _tasks,
-    );
+    final updatedField = widget.field.copyWith(tasks: _tasks);
     await FieldStorageService.updateField(updatedField);
   }
 
@@ -164,15 +160,7 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
     return WillPopScope(
       onWillPop: () async {
         // Geri giderken güncellenmiş tarlayı döndür
-        final updatedField = Field(
-          id: widget.field.id,
-          name: widget.field.name,
-          area: widget.field.area,
-          currentCrop: widget.field.currentCrop,
-          plantingDate: widget.field.plantingDate,
-          harvestDate: widget.field.harvestDate,
-          tasks: _tasks,
-        );
+        final updatedField = widget.field.copyWith(tasks: _tasks);
         Navigator.pop(context, {'action': 'update', 'field': updatedField});
         return false;
       },
@@ -203,6 +191,8 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
             _buildInfoCard(),
             const SizedBox(height: 16),
             _buildProgressCard(completedCount, progress),
+            const SizedBox(height: 16),
+            _buildLocationCard(),
             const SizedBox(height: 16),
             _buildTasksCard(),
           ],
@@ -262,6 +252,34 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
                   ],
                 ),
               ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      widget.field.ownership == FieldOwnership.own
+                          ? Icons.home_work_outlined
+                          : Icons.assignment_ind_outlined,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      widget.field.ownership == FieldOwnership.own
+                          ? 'Kendi Tarlam'
+                          : 'Kiralık',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
           if (widget.field.plantingDate != null || widget.field.harvestDate != null) ...[
@@ -309,6 +327,164 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildLocationCard() {
+    if (!widget.field.hasLocation) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Tarla Konumu',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.location_off, color: Colors.grey[500]),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Bu tarla için henüz koordinat kaydedilmemiş.',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: _editField,
+              icon: const Icon(Icons.add_location_alt_outlined),
+              label: const Text('Konum Ekle'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final lat = widget.field.latitude!;
+    final lng = widget.field.longitude!;
+    final latLng = LatLng(lat, lng);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Tarla Konumu',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.field.locationName ??
+                        '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+              TextButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => FieldLocationPickerScreen(
+                        initialLocation: latLng,
+                        initialAddress: widget.field.locationName,
+                        isReadOnly: true,
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.fullscreen),
+                label: const Text('Haritada Gör'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: SizedBox(
+              height: 220,
+              child: FlutterMap(
+                options: MapOptions(
+                  initialCenter: latLng,
+                  initialZoom: 15,
+                  interactionOptions: const InteractionOptions(
+                    enableScrollWheel: false,
+                  ),
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate:
+                        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                    userAgentPackageName: 'com.thtakvim.tarim_hayvancilik_app',
+                  ),
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: latLng,
+                        width: 40,
+                        height: 40,
+                        child: const Icon(
+                          Icons.location_on,
+                          color: Colors.red,
+                          size: 36,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Icon(Icons.pin_drop_outlined, size: 18),
+              const SizedBox(width: 8),
+              Text('${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)}'),
+            ],
+          ),
+        ],
+      ),
     );
   }
 

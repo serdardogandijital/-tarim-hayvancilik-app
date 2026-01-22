@@ -8,6 +8,7 @@ class FieldsCarouselCard extends StatelessWidget {
   final VoidCallback onAddField;
   final Function(Field) onFieldUpdated;
   final Function(Field) onFieldDeleted;
+  final VoidCallback onViewAllFields;
 
   const FieldsCarouselCard({
     super.key,
@@ -15,6 +16,7 @@ class FieldsCarouselCard extends StatelessWidget {
     required this.onAddField,
     required this.onFieldUpdated,
     required this.onFieldDeleted,
+    required this.onViewAllFields,
   });
 
   @override
@@ -85,7 +87,27 @@ class FieldsCarouselCard extends StatelessWidget {
               },
             ),
           ),
+          const SizedBox(height: 12),
+          _buildMapButton(context),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMapButton(BuildContext context) {
+    final hasLocations = fields.any((field) => field.hasLocation);
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: hasLocations
+            ? onViewAllFields
+            : null,
+        icon: const Icon(Icons.map_outlined),
+        label: Text(
+          hasLocations
+              ? 'Tüm tarlaları haritada gör'
+              : 'Haritada göstermek için konum ekleyin',
+        ),
       ),
     );
   }
