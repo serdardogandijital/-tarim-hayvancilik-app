@@ -9,9 +9,6 @@ export PATH="$PATH:`pwd`/flutter/bin"
 echo "Flutter version:"
 flutter --version
 
-echo "Running flutter doctor..."
-flutter doctor -v
-
 echo "Getting dependencies..."
 flutter pub get
 
@@ -19,6 +16,12 @@ echo "Building web..."
 flutter build web --release --base-href "/"
 
 echo "Copying _redirects file..."
-cp _redirects build/web/_redirects || cp web/_redirects build/web/_redirects
+if [ -f "_redirects" ]; then
+  cp _redirects build/web/_redirects
+elif [ -f "web/_redirects" ]; then
+  cp web/_redirects build/web/_redirects
+else
+  echo "/*    /index.html   200" > build/web/_redirects
+fi
 
 echo "Build completed successfully!"
