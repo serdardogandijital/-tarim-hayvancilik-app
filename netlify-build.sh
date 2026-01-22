@@ -16,6 +16,9 @@ echo "Getting dependencies..."
 flutter pub get
 
 echo "Building web..."
-flutter build web --release
+flutter build web --release --base-href "/"
+
+echo "Copying _redirects file..."
+cp _redirects build/web/_redirects || cp web/_redirects build/web/_redirects
 
 echo "Build completed successfully!"
