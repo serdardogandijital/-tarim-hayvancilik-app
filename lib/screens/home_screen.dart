@@ -21,7 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _selectedIndex = widget.initialIndex;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      AdService.instance.maybeShowStartupRewardedAd();
+      AdService.instance.startAdSchedule();
     });
   }
 

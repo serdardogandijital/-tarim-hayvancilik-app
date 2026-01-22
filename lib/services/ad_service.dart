@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class AdService {
   AdService._internal();
@@ -12,8 +11,9 @@ class AdService {
 
   RewardedInterstitialAd? _rewardedAd;
   bool _isLoadingRewarded = false;
-  bool _hasShownStartupAd = false;
   bool _shouldShowOnceLoaded = false;
+  Timer? _startupTimer;
+  Timer? _recurringTimer;
 
   Future<void> initialize() async {
     if (!_supportsMobileAds) return;
@@ -22,27 +22,26 @@ class AdService {
     await _loadRewardedInterstitial();
   }
 
-  Future<void> showStartupRewardedAd() async {
-    if (_hasShownStartupAd) return;
-    _hasShownStartupAd = true;
+  void startAdSchedule() {
+    if (_startupTimer != null) return;
+    if (!_supportsMobileAds) return;
 
-    if (_rewardedAd != null) {
-      _showRewardedAd();
-    } else {
-      _shouldShowOnceLoaded = true;
-      await _loadRewardedInterstitial();
-    }
+    _startupTimer = Timer(const Duration(seconds: 15), () {
+      _requestRewardedInterstitial();
+      _recurringTimer?.cancel();
+      _recurringTimer =
+          Timer.periodic(const Duration(minutes: 5), (_) => _requestRewardedInterstitial());
+    });
   }
 
-  Future<void> maybeShowStartupRewardedAd() async {
-    final prefs = await SharedPreferences.getInstance();
-    const key = 'startup_rewarded_ad_shown';
-    final alreadyShown = prefs.getBool(key) ?? false;
+  void _requestRewardedInterstitial() {
+    if (_rewardedAd != null) {
+      _showRewardedAd();
+      return;
+    }
 
-    if (alreadyShown) return;
-
-    await showStartupRewardedAd();
-    await prefs.setBool(key, true);
+    _shouldShowOnceLoaded = true;
+    unawaited(_loadRewardedInterstitial());
   }
 
   Future<void> _loadRewardedInterstitial() async {
@@ -116,9 +115,9 @@ class AdService {
 
   String get _rewardedInterstitialUnitId {
     if (Platform.isAndroid) {
-      return 'ca-app-pub-3940256099942544/5354046379';
+      return 'ca-app-pub-3063450268551990/8392704645';
     } else if (Platform.isIOS) {
-      return 'ca-app-pub-3940256099942544/6978759866';
+      return 'ca-app-pub-3063450268551990/8392704645';
     }
 
     throw UnsupportedError('Unsupported platform for mobile ads.');
