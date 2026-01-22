@@ -2,6 +2,10 @@
 set -e
 
 echo "Installing Flutter..."
+# Eğer flutter klasörü varsa sil
+if [ -d "flutter" ]; then
+  rm -rf flutter
+fi
 # Flutter'ı yükle
 git clone https://github.com/flutter/flutter.git -b stable --depth 1
 export PATH="$PATH:`pwd`/flutter/bin"
