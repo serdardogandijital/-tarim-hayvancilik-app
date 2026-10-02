@@ -1,0 +1,283 @@
+Çiftçi+ — ilk hata düzeltme ve geliştirme turu, 2 Ekim 2026
+
+Çalışma klasörü: /Users/ajanszero/Development/ciftci-plus
+Dal: codex/ciftci-plus-foundation-fixes
+Başlangıç: GitHub main, 21dac3864f7e8d1f145c7406dd53808b062f4e6d.
+Mağazadaki son sürüm ile kaynak kodun birebir eşleştiği doğrulanmadı.
+Mevcut uygulama kimlikleri ve eski kayıt anahtarları korundu.
+
+Yapılanlar:
+- Hata durumunda rastgele/400 kg ağırlık ve mevsime göre uydurma hava
+  verisi üretimi kaldırıldı. Doğrulanmamış sabit fiyatlar güncel/resmi
+  fiyat olarak gösterilmiyor.
+- Gömülü API anahtarı üç servisten kaldırıldı. Kullanıcının kaydettiği
+  kişisel anahtar OS güvenli deposuna taşınıyor; düz metin kopyası siliniyor.
+- API çağrılarına süre sınırı, görsellere boyut sınırı/JPEG dönüştürme
+  eklendi. Ham servis yanıtlarının günlüklere yazılması kaldırıldı.
+- Bitki yanıtları gerçek JSON olarak ayrıştırılıyor. Bozuk yanıt başarı
+  kaydı oluşturmuyor; başarılı analiz fotoğrafı kalıcı klasöre kopyalanıyor.
+- Kayıt değişiklikleri sıraya alındı. Okunamayan verinin üstüne yazmak
+  engellendi; önceki geçerli kayıt kopyası saklanıyor ve hata gösteriliyor.
+- Hayvan düzenlemede aşı/süt/yem kayıtlarının kaybı düzeltildi.
+- İlk açılışta kullanıcıya aitmiş gibi demo tarla eklenmesi kaldırıldı.
+- Türkçe ondalık tarla alanı desteklendi; sıfır/negatif/geçersiz alan
+  reddediliyor. Ana sayfa sayaçları kayıt değişikliklerinde yenileniyor.
+- Otomatik, zamanlanmış reklam gösterimi durduruldu. Başlangıç artık
+  reklam/bildirim servisinin başarılı başlatılmasına bağlı değil.
+- Bildirim kimlikleri kararlı hale getirildi; ekim/hasat/kızgınlık
+  hatırlatmalarının yanlış yıllık tekrarı kaldırıldı. Android kurulum ve
+  izinleri düzenlendi. Bildirim hatası kayıt işlemini başarısız yapmıyor.
+- Android release için debug imzası kaldırıldı; gerçek upload keystore
+  ve android/key.properties gerekiyor. iOS kamera izin derleme ayarı eklendi.
+- Poppins yazı tipleri ve lisansı pakete eklendi; ağ olmadan yükleniyor.
+- Ana sayfaya gerçek verilerden geciken/yaklaşan işler listesi eklendi.
+  Tamamlanmış işler dışlanıyor; bugün ve sonraki 7 gün, aşı ve kızgınlık
+  tarihleri kapsanıyor. Liste ilgili bölüme götürüyor.
+
+Doğrulama:
+- flutter test --no-pub: 24 test geçti.
+- iPhone 17 / iOS 26.5 simülatöründe integration_test/app_flow_test.dart:
+  1 test geçti. Arayüzden 2,5 dönümlük tarla kaydı, yerel depodan okuma ve
+  widget ağacı yeniden oluşturulduktan sonra görünmesi doğrulandı.
+  Yalnızca testin oluşturduğu kayıt temizlendi.
+- iOS simülatör debug derlemesi ve Android debug APK derlemesi başarılı.
+- Simülatörde ana sayfa, sekmeler, tarla formu ve yeni iş listesi görüldü.
+- Statik analizde hata veya warning kalmadı. Eski Flutter API kullanımları
+  ve stil için info düzeyindeki notlar hâlâ var; bunlar gizlenmedi.
+- lib/test/integration_test içinde gömülü sk- anahtarı taraması: 0 sonuç.
+
+Doğrulanmayanlar / yayın öncesi gerekenler:
+- Gerçek cihaz kamerası, fiziksel tartıya karşı tahmin doğruluğu, arka
+  planda/zamanı gelince bildirim teslimi ve canlı ücretli AI çağrıları.
+  API başarı/hata akışları ücretli istek göndermeden sahte HTTP yanıtlarıyla
+  test edildi. Görsel ağırlık tahmini doğrulanmış bir ölçüm değildir.
+- Eski gömülü API anahtarı sağlayıcı panelinden iptal edilmeli. Kaynaktan
+  silmek Git geçmişini veya daha önce yayınlanmış uygulamayı temizlemez.
+  Anahtarı kullanma/iptal etme işlemi yapılmadı.
+- Son mağaza kaynak sürümü/build numarası ve release imza dosyaları
+  karşılaştırılmalı; sürüm numarası bilinçli olarak yükseltilmedi.
+- Mağazalara veya GitHub'a yayın/push yapılmadı. Değişiklikler yerel dalda.
+
+Sonraki ürün öncelikleri:
+1. Kullanıcıdan API anahtarı istemeyen, sunucuda korunan AI bağlantısı;
+   kota/maliyet kontrolü ve gerçek kullanıcı akışında doğrulama.
+2. Süt, yem ve gider kayıtlarını günlük fayda sağlayan özetlere dönüştürme.
+3. İsteğe bağlı görev/aşı hatırlatmaları ve kullanıcı kontrolünde yedekleme.
+4. İlk tarla/hayvan kaydını kolaylaştıran başlangıç akışı; izinli kullanım
+   ölçümüyle 1/7/30 günlük geri dönüşün takibi.
+
+2026-10-02 ek geliştirmeler — üç açıdan baskül:
+- Kamera ve galeri ana akışları ön/yan/arka üç fotoğrafı etiketleriyle
+  birlikte tek AI isteğinde gönderiyor. Önceden yalnız yan fotoğraf kullanılıyordu.
+- Galeride seçim sırası açı sırasını bozmuyor. Eksik üçlü setle analiz
+  başlamıyor; fotoğraflar temizlenerek yalnız mezura ölçüleri kullanılabiliyor.
+- Aynı normalleştirilmiş fotoğrafın ikinci kez gönderilmesi engellendi.
+  Modelden farklı hayvan, eksik/yanlış açı ve yetersiz kalite durumlarında
+  kilo üretmemesi isteniyor. Bu, doğrulanmış bir görüntü kalite modeli değildir.
+- Üçlü yanıtta görsellerin kullanılabilir olduğuna dair photoCheck alanı
+  aranıyor; eksik onay başarılı görsel kilo tahmini sayılmıyor.
+- Gerçek cm girdileri varsa hesaplanan formül sonucu korunuyor. Görsel
+  tahminle ortalama alınmıyor. Sonuçta ölçü veya fotoğraf kaynağı belirtiliyor.
+- Çift dokunma ile yinelenen analiz engellendi; sonuç ve paylaşımda ondalık
+  kilo hassasiyeti kaldırıldı. Başlık/metin taşmaları düzeltildi.
+- Gerçek tartı karşılaştırması ve canlı ücretli AI çağrısı yapılmadı.
+  Doğruluk artışı veya belirli hata yüzdesi iddia edilmiyor.
+
+2026-10-02 AdMob incelemesi:
+- Kullanıcı ekran görüntüsünde Çiftçi+ Android için 26 Eyl 2026 bildirimli
+  "Ödüllerin uygulanması - Kullanıcı seçimi" ve kısıtlanmış reklam sunumu var.
+  182, son 7 gün reklam isteği; tekil kullanıcı/indirme/gösterim değildir.
+- Eski AdService: 15 saniye sonra, ardından her 5 dakikada ödüllü geçiş
+  reklamı; açıklama ve kabul/atla seçeneği yok. Ödül yalnız günlüğe yazılıyor,
+  gerçek ödül verilmiyor. Yükleme hatası 3 saniyede bir yeniden deneniyor.
+  Bu uygulama biçimi ekrandaki ihlalle örtüşüyor; mağaza binary'sinin kaynak
+  eşleşmesi ayrıca doğrulanmalı.
+- Önceki çalışmada servis çağrıları kesilmişti. Bu turda kullanılmayan
+  hatalı AdService tamamen kaldırıldı. lib altında reklam isteği/başlatma/
+  gösterme çağrısı kalmadı. SDK bağımlılığı ve uygulama kimlikleri korundu;
+  bu sürümün Dart akışları reklam istemiyor veya göstermiyor.
+- Yeni isteğe bağlı ödül ürünü tasarlanmadı; mevcut özellikler reklam
+  izleme şartına bağlanmadı. Reklam gelirinin bu sürümde oluşması beklenmez.
+- Panel ayarı değiştirilmedi, mağazaya yayın ve AdMob inceleme başvurusu
+  yapılmadı. Yerel kod değişikliği canlı sürümü veya mevcut kısıtı düzeltmez.
+- Yayın sonrası: AdMob > Politika merkezi > Çiftçi+ Android > Düzeltin >
+  inceleme başlat. Yeni sürümle düzeltme seçeneği ve gerçek sürüm numarası
+  kullanılmalı; Google sonucundan önce kısıtın kalktığı söylenmemeli.
+- İnceleme açıklaması taslağı (yalnız düzeltilmiş sürüm yayınlandıktan sonra):
+  "Yeni sürümde kullanıcı seçimi olmadan çalışan ödüllü geçiş reklamı
+  akışını kaldırdık. Açılışta ve kullanım sırasında zamanlayıcıyla reklam
+  talep edilmez/gösterilmez. Uygulama özellikleri reklam izleme şartına
+  bağlı değildir. Yayınlanan yeni sürümün yeniden incelenmesini istiyoruz."
+- Resmi kaynaklar:
+  https://support.google.com/admob/answer/7313578?hl=tr
+  https://support.google.com/admob/answer/6168758?hl=tr
+  https://support.google.com/admob/answer/10448709?hl=tr
+
+Cihaz sınırı:
+- Kullanıcının kısıtından sonra yalnız onayladığı Ajans MacBook Pro'da
+  geliştirme ve Flutter birim/widget testleri yapıldı. Başka fiziksel
+  cihaz/simülatör kullanılmadı. Gerekirse tek telefon Çakır iPhone 14 Pro Max.
+- Yukarıdaki iPhone 17 simülatör kaydı önceki çalışmaya aittir; bu turda
+  simülatör çalıştırılmadı. Telefona uygulama yükleme veya veri değişikliği yok.
+
+Bu turun doğrulaması:
+- flutter test --no-pub: 37 test geçti. Üç görselin tek istekte sıralı
+  gönderimi, eksik/tekrarlı fotoğraf, modelin ret yanıtları, galeri seçim
+  sırası, çift dokunma, ölçüyle hesaplama ve otomatik reklamın başlamaması
+  dahil. HTTP çağrıları taklit edildi; gerçek reklam veya AI isteği yok.
+- flutter analyze --no-pub --no-fatal-infos: 0 hata, 0 warning,
+  126 info (önceki deprecation/stil notları).
+- git diff --check temiz. Bu turda yeni native paket derlemesi yapılmadı.
+
+Sonraki değişiklik — kullanıcının istediği misafir hakları ve reklam modeli:
+Bu bölüm önceki "reklam tamamen kapalı" kararının yerini alır.
+- Giriş zorunluluğu eklenmedi. İlk misafir kullanımında 3 hak; sonraki
+  giriş yapılan her Türkiye gününde 1 bonus; atlanan günler için birikmiş
+  bonus yok. Kullanılmayan haklar birikir. Cihazın güvenli deposunda tutulur.
+- Başarılı bitki ve baskül fotoğraf analizleri ortak bakiyeden 1 hak
+  tüketir. API/kalite hataları ve bitki sonucunu kaydetme hatası tüketmez.
+  Eşzamanlı istekler aynı hakkı kullanamaz. Mezurayla hesaplama ücretsizdir.
+- Ana sayfada bakiye/kural kartı, galeri ve kamera akışlarında hak kazanma
+  girişi, sıfır hakta isteğe bağlı reklam açıklaması eklendi.
+- Tamamlanan RewardedAd +1 hak verir. Tekrarlı callback aynı ödülü ikinci
+  kez yazmaz. İptal/yükleme hatası hak eklemez. Yazma hatasında aynı oturumda
+  yeniden reklam izletmeden kaydetme denenir. Otomatik tam ekran reklam yok.
+- Ana sekmelerin altında uyarlanabilir banner alanı; klavyede gizlenir.
+  UMP izni ve gerektiğinde gizlilik seçenekleri girişi eklendi.
+- Debug/profile Google test reklam kimlikleri kullanır. Release gerçek
+  platform/format kimlikleri dart-define ile verilmeden ilgili reklamı
+  başlatmaz. Eski rewarded-interstitial kimliği yeniden kullanılmaz.
+- Canlı AdMob birimleri ve mevcut native AdMob app ID/platform eşleşmesi
+  panelde henüz doğrulanmadı; gerçek reklam gösterimi yapılmadı.
+- Hesap/sunucu/SSV kurulmadı. Yerel saat ve depolama sunucu garantisi vermez;
+  haklar başka telefona eşitlenmez. Yerel cüzdan yayına hazır bir sunucu
+  kota sistemi olarak sunulmamalı. AI halen kişisel API anahtarı kullanır.
+- Kurulum ve yeni politika inceleme taslağı: AD_REKLAM_KURULUMU.txt.
+  Eski "tüm reklamları kaldırdık" inceleme taslağı artık kullanılmamalı.
+- 50 birim/widget test geçti; statik analizde 0 hata/0 warning, 126 eski
+  info. Ödül seçimi, vazgeçme, bonus zamanı, depolama bozulması, eşzamanlı
+  tüketim ve ödül tekrarları taklit servislerle doğrulandı.
+- iOS fiziksel hedef için debug/codesign olmadan derlendi; cihaz üzerine
+  kurulmadı. Gerçek iPhone 14 Pro Max reklam/kamera/izin testi yapılmadı.
+- Çalışma yalnız onaylanan Mac'te. Başka Mac/simülatör/telefon ve tarayıcı
+  kullanılmadı. Mağazaya yayın ve AdMob inceleme başvurusu yapılmadı.
+
+2026-10-02 — mevcut çiftlik takip bölümlerinin tamamlanması:
+- Hayvan detayına Süt kayıtları ve grafik / Tohumlama ve doğum geçmişi /
+  Bu hayvanın gelir–gideri girişleri eklendi. Mevcut üreme/yem/aşı/belge
+  alanları korundu. Tarla detayına o tarlanın gelir–gideri eklendi.
+- Süt kaydı: gün başına toplam litre ekleme, düzenleme ve silme; Türkçe
+  ondalık giriş; son 7 gün süt grafiği, toplam ve kayıtlı gün ortalaması.
+  Eski aynı gün içindeki birden çok süt kaydı grafikte toplanır; o gün
+  düzenlenince kullanıcıya açıklanan günlük toplamla değiştirilir.
+  Eksik gün sıfır kabul edilmez; gerçek 0 litre geçerli bir kayıttır.
+  Günlük takip hayvan bazında açılıp kapatılır, kapatma geçmişi silmez.
+- Üreme takibi: tarihli tohumlama geçmişi, kontrol bekliyor/gebelik
+  doğrulandı/gebe değil/doğum gerçekleşti/gebelik sonlandı durumları,
+  kontrol ve beklenen/gerçek doğum tarihleri, notlar, mevcut yavru
+  kayıtlarına bağlantı ve yavrudan anneye geçiş. Aynı hayvanda tek aktif
+  döngü; yavru iki doğuma bağlanamaz. Yavru ile doğum tarihleri uyuşmalı.
+  Yavru otomatik oluşturulmaz; önce hayvan kaydı eklenip doğuma bağlanır.
+  Beklenen doğum tarihi kullanıcı/veteriner girdisidir; biyolojik süre
+  hesaplaması veya otomatik gebelik teşhisi yapılmaz.
+- Açık kontrol ve beklenen doğum tarihleri ana sayfanın yaklaşan işler
+  listesine ve yerel bildirim planına bağlandı. Tamamlanan/olumsuz
+  döngüler yaklaşan iş olarak kalmaz. Yeni doğum, son doğurma bilgisinde
+  dikkate alınır; döngü silindiğinde önceki kayıt korunur.
+- Yem/malzeme: ürün kartı, kg/litre/adet/çuval/balya birimi, uyarı eşiği,
+  tarihli giriş–çıkış ve açıklama, hareket düzenleme/silme, kalan stok.
+  Miktarlar binde birlik tamsayı tutulur; yuvarlama artığıyla eksi stok
+  oluşmaz. Geri tarihli hareket dahil hiçbir noktada negatif bakiye
+  oluşturacak işlem kabul edilmez. Hareket varken birim değişmez.
+- Gelir–gider: tarih/kategori/tutar/açıklama, hayvan veya tarla bağlantısı,
+  aylık gelir/gider/fark, düzenleme/silme. Para kuruş olarak tutulur;
+  süt/hayvan/ürün ve gider kategorileri desteklenir. Kayıtlı fark net kâr
+  diye sunulmaz. Mevcut aylık yem tahmini ve stok hareketi otomatik para
+  işlemi oluşturmaz; böylece aynı gider iki kez sayılmaz.
+- Ana sayfaya bugünkü kayıtlı süt, günlük takibi açık eksik kayıtlar,
+  eşik altındaki stoklar ve ayın kayıtlı gelir–gider farkı bağlandı.
+  Değişiklik ve uygulamaya dönüşte özetler yenilenir. Stok/defter düğmeleri
+  bu karttan açılır; hayvan yem bölümünden de stoklara ulaşılır.
+- animals_data anahtarı korundu; yeni alanlar yoksa uyumlu varsayılanlar
+  kullanılır. Genel hayvan düzenleme süt/üreme geçmişini korur. Yeni
+  anahtarlar farm_stock_v1 ve farm_finance_v1; güvenli kayıt altyapısı ve
+  önceki geçerli kopya uygulanır. Doğrulama hatası depolama bozulması
+  olarak işaretlenmez. Boşta kayıt kuyruğu tamamlanmış Future tutmaz.
+- 69 birim/widget test geçti. Yeni testler eski veri uyumu, eşzamanlı
+  hareketler, negatif stok engeli, kesin kuruş hesabı, süt günü taşıma,
+  sıfır/eksik kayıt ayrımı, anne–yavru bağlantıları ve beş gerçek arayüz
+  kayıt akışını kapsar. Bunlar Mac üzerinde widget testleridir; fiziksel
+  cihaz testi olarak sunulmamalı. Statik analiz 0 hata / 0 warning.
+- Gerçek iPhone bildirim teslimi henüz doğrulanmadı. Yeni veriler yereldir;
+  sunucu yedeği/çok cihazlı eşitleme bu değişikliğe dahil değildir.
+- Son kaynakla iOS fiziksel hedef debug derlemesi codesign olmadan başarılı.
+  Telefona yükleme yapılmadı. Son statik analizde 0 hata / 0 warning ve
+  125 info düzeyinde eski API/stil notu var; git diff --check temiz.
+
+2026-10-02 — Gerçek iPhone test kurulumu
+- Yalnızca Ajans MacBook Pro üzerinden, kablolu Çakır iPhone 14 Pro Max
+  (iOS 26.0.1) kullanıldı; başka cihaz veya simülatörde çalıştırılmadı.
+- /tmp/ciftci-device-test.8TCvSP kaynak kopyasıyla ayrı uygulama:
+  com.thtakvim.tarimHayvancilikApp.dev, görünen ad Çiftçi+ Test.
+  Mağaza uygulaması com.thtakvim.tarimHayvancilikApp (1.0.0/11) korunuyor.
+- Profile build, Apple Development imzası ve wildcard geliştirme profili
+  başarılı; codesign --verify --deep --strict geçti. QA kopyasında Google
+  örnek iOS AdMob App ID kullanıldı; profile modu test reklam birimlerini seçer.
+- devicectl install ve launch başarılı; PID 23128 başlatıldı, sonraki süreç
+  sorgusunda çalışmaya devam ettiği doğrulandı. Bu kontrol yalnızca kurulum
+  ve süreç açılışıdır; ekran etkileşimleri, reklam ödülü, kamera ve bildirim
+  teslimi henüz gerçek cihazda doğrulanmadı. Kullanıcı elle test edebilir.
+- Asıl kaynakların bundle ID ve AdMob App ID değerleri bu kurulum için
+  değiştirilmedi. Test uygulamasının verileri mağaza uygulamasından ayrıdır.
+
+2026-10-02 — Ana sayfa görsel düzeni
+- Canlı Baskül ve Bitki Analiz kartları ilk iki sıraya alındı. Hak bilgisi
+  tek kompakt şerit; ayrıntılı kurallar ödüllü reklam penceresinde kaldı.
+- Çiftlik özeti süt/stok için iki küçük kart ve aylık fark satırı olarak
+  yenilendi. Büyük yazı/narin genişlikte metrik kartları alt alta geçer.
+  Yaklaşan işler tek satırdan mevcut tüm işler penceresini açar.
+- 6 ilgili mevcut widget testi geçti; metin beklentileri yeni görünüme
+  uyarlandı. 430x932 görsel çıktıları /tmp/ciftci-dashboard-top.png ve
+  /tmp/ciftci-dashboard-summary.png üzerinden incelendi. Bunlar Mac
+  widget render çıktılarıdır, fiziksel telefon ekran görüntüleri değildir.
+- Değişen üç ekranda analiz: 0 hata / 0 warning, eski withOpacity için
+  3 info. git diff --check temiz. İmzalı Profile derlemesi başarılı;
+  derlenen pakette yeni kart metinleri doğrulandı. Güncel paket yalnızca
+  Çakır iPhone 14 Pro Max'teki com.thtakvim.tarimHayvancilikApp.dev üzerine
+  kuruldu. Test uygulaması kayıtları silinmedi; mağaza uygulaması korundu.
+
+2026-10-02 — Analiz hakkı paketleri (satış kapalı)
+- ciftci_analiz_10 / ciftci_analiz_50 için 10 ve 50 hak paket ekranı;
+  mağaza henüz bağlı değilken 9,99 TL / 44,99 TL 'planlanan fiyat' olarak
+  gösteriliyor. Canlı ürün geldiğinde SDK'nın yerel fiyatı gösterilir.
+- purchases_flutter 10.14.0 eklendi (iOS RevenueCat 5.92.0). Mağazadan
+  ürün listeleme, tek seferlik alım, iptal/bekleyen ödeme ve işlem geçmişi
+  okuma bağlantıları hazır. ANALYSIS_PURCHASES_ENABLED varsayılan false.
+- Canlı satışa izin için HTTPS sunucu oturumu/ready kontrolü, RC anahtarı,
+  mağaza ürünü ve sunucu fiş doğrulaması zorunlu. SDK success tek başına
+  hak vermez. Oturum her checkout öncesi yeniden kontrol edilir.
+- Satın alınan hak/işlem/grant aynı güvenli yazımla kaydedilir. Kopya fiş
+  veya kopya grant yeniden hak vermez; bekleyen ödeme işareti kalıcıdır.
+  Kesinti sonrası geçmiş okunup doğrulanmış eksik hibe tekrar denenir;
+  yeni bir satın alma başlatılmaz. Bilinen iptal ödeme işaretini temizler.
+- 26 seçilmiş test/render kontrolü geçti (12 yeni ödeme testi dahil).
+  İptal, onay bekleme/yeniden açma, yanlış sunucu cevabı, süresi dolan
+  oturum, kayıt hatası, doğrulama kesintisi ve eşzamanlı tıklama test edildi.
+  Bunlar taklit mağaza/sunucu testleridir, gerçek sandbox ödeme değildir.
+- Değişen 4 Dart dosyasında statik analiz temiz (0 sorun). Görsel çıktı
+  /tmp/ciftci-analysis-packs.png üzerinden kontrol edildi. diff check temiz.
+- İmzalı Profile iOS derlemesi başarılı; test kopyası kaynak dosyasının
+  SHA256 değeri asıl kaynakla aynı, App.framework derlemesi kaynaklardan
+  yeni. Paket fiyatları ve satış kapalı metni binary'de doğrulandı.
+- Yeni sürüm yalnız Çakır iPhone 14 Pro Max'teki .dev test uygulamasına
+  güncelleme olarak kuruldu; mağaza uygulaması/kayıtları silinmedi.
+- CANLI EKSİKLER: Gerçek RC projesi, mağaza ürünleri, oturum/sunucu hak
+  defteri ve kişisel API anahtarı istemeyen analiz altyapısı yapılmadı.
+  SATIN_ALMA_KURULUMU.txt entegrasyon sözleşmesi/kalan adımları içerir;
+  çalışan backend veya mağaza onayı değildir. Gerçek ödeme alınamaz.
+- Mağaza sekmesine CUA erişimi timeout, ardından Debugger unattached
+  hatası verdi. Mağaza ürünleri ve RC projesi UI üzerinden oluşturulmadı.
+- İlk --terminate-existing açılışında CoreDevice 10004 (PID alınamadı)
+  raporlandı. Sonraki doğrudan açılış başarılı; PID 23240 birden fazla
+  süreç sorgusunda ve konsol dinleyicisi ayrıldıktan sonra çalışıyor.
+  İlk hatanın nedeni belirlenmedi; tekrarında bir uygulama çöküşü gözlenmedi.

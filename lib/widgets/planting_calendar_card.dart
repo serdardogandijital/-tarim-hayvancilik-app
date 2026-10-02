@@ -18,9 +18,25 @@ class _PlantingCalendarCardState extends State<PlantingCalendarCard> {
 
   @override
   Widget build(BuildContext context) {
-    final monthName = DateFormat('MMMM', 'tr_TR').format(DateTime(2024, _selectedMonth));
+    if (widget.selectedCity == null) {
+      return const Card(
+        child: ListTile(
+          leading: Icon(Icons.agriculture_outlined),
+          title: Text('Ekim Takvimi'),
+          subtitle: Text('Bölgenize uygun takvimi görmek için il seçin.'),
+        ),
+      );
+    }
+
+    final monthName = DateFormat(
+      'MMMM',
+      'tr_TR',
+    ).format(DateTime(2024, _selectedMonth));
     final region = PlantingData.getRegion(widget.selectedCity);
-    final currentMonthCrops = PlantingData.getCropsForMonth(widget.selectedCity, _selectedMonth);
+    final currentMonthCrops = PlantingData.getCropsForMonth(
+      widget.selectedCity,
+      _selectedMonth,
+    );
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -47,10 +63,7 @@ class _PlantingCalendarCardState extends State<PlantingCalendarCard> {
               const SizedBox(width: 8),
               const Text(
                 'Ekim Takvimi',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -87,7 +100,9 @@ class _PlantingCalendarCardState extends State<PlantingCalendarCard> {
                             '$region Bölgesi',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.primary.withOpacity(0.7),
                             ),
                           ),
                         ],
@@ -104,8 +119,11 @@ class _PlantingCalendarCardState extends State<PlantingCalendarCard> {
                     itemBuilder: (context, index) {
                       final month = index + 1;
                       final isSelected = month == _selectedMonth;
-                      final monthShort = DateFormat('MMM', 'tr_TR').format(DateTime(2024, month));
-                      
+                      final monthShort = DateFormat(
+                        'MMM',
+                        'tr_TR',
+                      ).format(DateTime(2024, month));
+
                       return Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: InkWell(
@@ -115,7 +133,10 @@ class _PlantingCalendarCardState extends State<PlantingCalendarCard> {
                             });
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
                               color: isSelected
                                   ? Theme.of(context).colorScheme.primary
@@ -160,10 +181,7 @@ class _PlantingCalendarCardState extends State<PlantingCalendarCard> {
                   Expanded(
                     child: Text(
                       'Bu ay için önerilen ekim bulunmamaktadır',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                     ),
                   ),
                 ],
@@ -186,10 +204,7 @@ class _PlantingCalendarCardState extends State<PlantingCalendarCard> {
       ),
       child: Row(
         children: [
-          Text(
-            crop['icon']!,
-            style: const TextStyle(fontSize: 24),
-          ),
+          Text(crop['icon']!, style: const TextStyle(fontSize: 24)),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -204,10 +219,7 @@ class _PlantingCalendarCardState extends State<PlantingCalendarCard> {
                 ),
                 Text(
                   crop['note']!,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                 ),
               ],
             ),

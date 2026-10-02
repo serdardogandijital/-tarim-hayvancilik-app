@@ -1,71 +1,40 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'api_key_store.dart';
 
 class AIChatService {
   static const String _apiUrl = 'https://api.openai.com/v1/chat/completions';
-  static const String _apiKeyPrefKey = 'openai_api_key';
-  static const String _defaultApiKey = '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';
-  
+
   String? _apiKey;
   final List<Map<String, dynamic>> _chatHistory = [];
-  
-  // API Key'i SharedPreferences'tan yükle (yoksa default key kullan)
-  static Future<String?> getApiKey() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedKey = prefs.getString(_apiKeyPrefKey);
-    return (savedKey != null && savedKey.isNotEmpty) ? savedKey : _defaultApiKey;
-  }
-  
-  // API Key'i SharedPreferences'a kaydet
-  static Future<void> setApiKey(String apiKey) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_apiKeyPrefKey, apiKey);
-  }
-  
-  // API Key'i sil
-  static Future<void> clearApiKey() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_apiKeyPrefKey);
-  }
-  
+
+  static Future<String?> getApiKey() => ApiKeyStore.read();
+
+  static Future<void> setApiKey(String apiKey) => ApiKeyStore.write(apiKey);
+  static Future<void> clearApiKey() => ApiKeyStore.clear();
+
   // API Key ayarlı mı kontrol et
   static Future<bool> hasApiKey() async {
     final key = await getApiKey();
     return key != null && key.isNotEmpty;
   }
-  
-  static const String _systemPrompt = '''Sen deneyimli bir veteriner hekim AI asistanısın. 
-Türkiye'deki çiftçilere ve hayvancılara online veteriner hizmeti veriyorsun. 
 
-Görevlerin:
-1. Hayvan hastalıklarını teşhis etmek ve tedavi önerileri vermek
-2. Acil durum müdahalelerinde rehberlik etmek
-3. Aşı ve ilaç önerileri sunmak
-4. Beslenme ve bakım tavsiyeleri vermek
-5. Gerektiğinde fiziksel veteriner muayenesi önerisi yapmak
+  static const String _systemPrompt =
+      '''Sen çiftçilere Türkçe bilgi veren bir tarım ve hayvan bakımı asistanısın.
+Veteriner hekim olduğunu veya uzaktan kesin teşhis koyduğunu iddia etme.
+Belirtilerde tür, yaş, süre ve şiddeti sor; belirsizliği açıkça belirt.
+Acil belirtilerde yerel veterinere başvurulmasını öner.
+Muayenesiz ilaç veya doz reçeteleme. Beslenme ve bakım için genel bilgi ver.''';
 
-Kurallar:
-- Profesyonel ve güvenilir ol
-- Türkçe konuş
-- Acil durumlarda hemen veteriner çağrılmasını öner
-- Pratik ve uygulanabilir çözümler sun
-- Hayvan refahını her zaman önceliklendir''';
-  
   AIChatService() {
-    _chatHistory.add({
-      'role': 'system',
-      'content': _systemPrompt,
-    });
+    _chatHistory.add({'role': 'system', 'content': _systemPrompt});
   }
-  
+
   Future<String> sendMessage(String message) async {
     try {
       // API key'i kontrol et
-      if (_apiKey == null || _apiKey!.isEmpty) {
-        _apiKey = await getApiKey();
-      }
-      
+      _apiKey = await getApiKey();
+
       if (_apiKey == null || _apiKey!.isEmpty) {
         return '''🔑 API Key Gerekli!
 
@@ -79,11 +48,8 @@ Online Veteriner hizmetini kullanmak için ChatGPT API key girmeniz gerekiyor.
 
 ⚙️ API Key'i girmek için sağ üstteki ayarlar (⚙️) butonuna tıklayın.''';
       }
-      
-      _chatHistory.add({
-        'role': 'user',
-        'content': message,
-      });
+
+      _chatHistory.add({'role': 'user', 'content': message});
 
       final requestBody = {
         'model': 'gpt-4o-mini',
@@ -92,14 +58,16 @@ Online Veteriner hizmetini kullanmak için ChatGPT API key girmeniz gerekiyor.
         'max_tokens': 1024,
       };
 
-      final response = await http.post(
-        Uri.parse(_apiUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_apiKey',
-        },
-        body: jsonEncode(requestBody),
-      );
+      final response = await http
+          .post(
+            Uri.parse(_apiUrl),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $_apiKey',
+            },
+            body: jsonEncode(requestBody),
+          )
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 401) {
         _chatHistory.removeLast(); // Kullanıcı mesajını geri al
@@ -112,19 +80,17 @@ Girdiğiniz API key çalışmıyor. Lütfen kontrol edin:
 
 ⚙️ Yeni key girmek için ayarlar butonuna tıklayın.''';
       }
-      
+
       if (response.statusCode != 200) {
         _chatHistory.removeLast();
         throw Exception('API hatası: ${response.statusCode}');
       }
 
       final jsonResponse = jsonDecode(response.body);
-      final responseText = jsonResponse['choices'][0]['message']['content'] as String;
-      
-      _chatHistory.add({
-        'role': 'assistant',
-        'content': responseText,
-      });
+      final responseText =
+          jsonResponse['choices'][0]['message']['content'] as String;
+
+      _chatHistory.add({'role': 'assistant', 'content': responseText});
 
       return responseText;
     } catch (e) {
@@ -135,7 +101,7 @@ Girdiğiniz API key çalışmıyor. Lütfen kontrol edin:
       return '⚠️ Bağlantı hatası oluştu. Lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.';
     }
   }
-  
+
   Future<String> getQuickAnswer(String question) async {
     final quickAnswers = {
       'bugün ne yapmalıyım': '''📋 Bugünün Önerileri:
@@ -147,19 +113,19 @@ Girdiğiniz API key çalışmıyor. Lütfen kontrol edin:
 5. 📝 Günlük kayıtları tut
 
 Daha detaylı yardım için sohbet başlat!''',
-      
+
       'hastalık': '''🏥 Hastalık Belirtileri:
 
 Hayvanınızda şu belirtileri kontrol edin:
-• Ateş (normal: 38.5°C)
+• Hayvanın türüne ve yaşına göre anormal vücut sıcaklığı
 • İştah kaybı
 • Halsizlik
 • Anormal dışkı
 • Öksürük/burun akıntısı
 
 ⚠️ Acil: Hemen veteriner çağırın!
-📞 Hafif: 24 saat izleyin''',
-      
+📞 Belirtileri veterinerinizle paylaşın''',
+
       'yem': '''🌾 Yem Önerileri:
 
 Büyükbaş için:
@@ -173,21 +139,18 @@ Küçükbaş için:
 
 💡 Mevsime göre ayarlayın!''',
     };
-    
+
     for (var entry in quickAnswers.entries) {
       if (question.toLowerCase().contains(entry.key)) {
         return entry.value;
       }
     }
-    
+
     return await sendMessage(question);
   }
-  
+
   void resetChat() {
     _chatHistory.clear();
-    _chatHistory.add({
-      'role': 'system',
-      'content': _systemPrompt,
-    });
+    _chatHistory.add({'role': 'system', 'content': _systemPrompt});
   }
 }

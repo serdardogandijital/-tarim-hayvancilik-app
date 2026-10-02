@@ -1,16 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../models/animal.dart';
 
 class AnimalCard extends StatelessWidget {
   final Animal animal;
   final VoidCallback onTap;
 
-  const AnimalCard({
-    super.key,
-    required this.animal,
-    required this.onTap,
-  });
+  const AnimalCard({super.key, required this.animal, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +22,9 @@ class AnimalCard extends StatelessWidget {
               Row(
                 children: [
                   CircleAvatar(
-                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.primaryContainer,
                     child: Icon(
                       Icons.pets,
                       color: Theme.of(context).colorScheme.primary,
@@ -92,12 +89,17 @@ class AnimalCard extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoChip(IconData icon, String label, BuildContext context,
-      {Color? color}) {
+  Widget _buildInfoChip(
+    IconData icon,
+    String label,
+    BuildContext context, {
+    Color? color,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: color?.withOpacity(0.1) ??
+        color:
+            color?.withOpacity(0.1) ??
             Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(8),
       ),

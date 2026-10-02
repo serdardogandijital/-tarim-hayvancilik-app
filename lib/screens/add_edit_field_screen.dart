@@ -32,8 +32,12 @@ class _AddEditFieldScreenState extends State<AddEditFieldScreen> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.field?.name ?? '');
-    _areaController = TextEditingController(text: widget.field?.area.toString() ?? '');
-    _cropController = TextEditingController(text: widget.field?.currentCrop ?? '');
+    _areaController = TextEditingController(
+      text: widget.field?.area.toString() ?? '',
+    );
+    _cropController = TextEditingController(
+      text: widget.field?.currentCrop ?? '',
+    );
     _plantingDate = widget.field?.plantingDate;
     _harvestDate = widget.field?.harvestDate;
     _latitude = widget.field?.latitude;
@@ -74,9 +78,11 @@ class _AddEditFieldScreenState extends State<AddEditFieldScreen> {
   void _saveField() {
     if (_formKey.currentState!.validate()) {
       final field = Field(
-        id: widget.field?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        id:
+            widget.field?.id ??
+            DateTime.now().millisecondsSinceEpoch.toString(),
         name: _nameController.text,
-        area: double.parse(_areaController.text),
+        area: double.parse(_areaController.text.replaceAll(',', '.')),
         currentCrop: _cropController.text.isEmpty ? null : _cropController.text,
         plantingDate: _plantingDate,
         harvestDate: _harvestDate,
@@ -92,7 +98,7 @@ class _AddEditFieldScreenState extends State<AddEditFieldScreen> {
 
   List<Task> _getDefaultTasks() {
     if (_cropController.text.isEmpty) return [];
-    
+
     return [
       Task(
         id: '1',
@@ -194,10 +200,7 @@ class _AddEditFieldScreenState extends State<AddEditFieldScreen> {
         children: [
           const Text(
             'Temel Bilgiler',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           TextFormField(
@@ -238,8 +241,9 @@ class _AddEditFieldScreenState extends State<AddEditFieldScreen> {
               if (value == null || value.isEmpty) {
                 return 'Alan gerekli';
               }
-              if (double.tryParse(value) == null) {
-                return 'Geçerli bir sayı girin';
+              final area = double.tryParse(value.replaceAll(',', '.'));
+              if (area == null || !area.isFinite || area <= 0) {
+                return 'Sıfırdan büyük bir alan girin';
               }
               return null;
             },
@@ -286,10 +290,7 @@ class _AddEditFieldScreenState extends State<AddEditFieldScreen> {
             children: [
               const Text(
                 'Tarla Konumu',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               if (hasLocation)
                 TextButton.icon(
@@ -313,7 +314,9 @@ class _AddEditFieldScreenState extends State<AddEditFieldScreen> {
                 Row(
                   children: [
                     Icon(
-                      hasLocation ? Icons.check_circle_outline : Icons.map_outlined,
+                      hasLocation
+                          ? Icons.check_circle_outline
+                          : Icons.map_outlined,
                       color: hasLocation
                           ? Theme.of(context).colorScheme.primary
                           : Colors.grey[600],
@@ -325,12 +328,17 @@ class _AddEditFieldScreenState extends State<AddEditFieldScreen> {
                         children: [
                           Text(
                             hasLocation
-                                ? (_locationName ?? 'Adres bulunamadı, koordinatlar kaydedilecek')
+                                ? (_locationName ??
+                                      'Adres bulunamadı, koordinatlar kaydedilecek')
                                 : 'Henüz konum seçilmedi. Haritada işaretleyin.',
                             style: TextStyle(
                               fontSize: 14,
-                              color: hasLocation ? Colors.black87 : Colors.grey[600],
-                              fontWeight: hasLocation ? FontWeight.w600 : FontWeight.normal,
+                              color: hasLocation
+                                  ? Colors.black87
+                                  : Colors.grey[600],
+                              fontWeight: hasLocation
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -359,7 +367,9 @@ class _AddEditFieldScreenState extends State<AddEditFieldScreen> {
                   child: OutlinedButton.icon(
                     onPressed: _pickLocation,
                     icon: const Icon(Icons.location_on_outlined),
-                    label: Text(hasLocation ? 'Konumu Düzenle' : 'Haritada Konum Seç'),
+                    label: Text(
+                      hasLocation ? 'Konumu Düzenle' : 'Haritada Konum Seç',
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -381,7 +391,9 @@ class _AddEditFieldScreenState extends State<AddEditFieldScreen> {
                         child: OutlinedButton(
                           style: OutlinedButton.styleFrom(
                             backgroundColor: isSelected
-                                ? Theme.of(context).colorScheme.primary.withOpacity(0.12)
+                                ? Theme.of(
+                                    context,
+                                  ).colorScheme.primary.withOpacity(0.12)
                                 : Colors.white,
                             side: BorderSide(
                               color: isSelected
@@ -389,7 +401,8 @@ class _AddEditFieldScreenState extends State<AddEditFieldScreen> {
                                   : Colors.grey[300]!,
                             ),
                           ),
-                          onPressed: () => setState(() => _ownership = ownership),
+                          onPressed: () =>
+                              setState(() => _ownership = ownership),
                           child: Column(
                             children: [
                               Icon(
@@ -477,10 +490,7 @@ class _AddEditFieldScreenState extends State<AddEditFieldScreen> {
         children: [
           const Text(
             'Tarihler (Opsiyonel)',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           _buildDateSelector(
@@ -501,7 +511,12 @@ class _AddEditFieldScreenState extends State<AddEditFieldScreen> {
     );
   }
 
-  Widget _buildDateSelector(String label, DateTime? date, IconData icon, VoidCallback onTap) {
+  Widget _buildDateSelector(
+    String label,
+    DateTime? date,
+    IconData icon,
+    VoidCallback onTap,
+  ) {
     return InkWell(
       onTap: onTap,
       child: Container(
@@ -521,10 +536,7 @@ class _AddEditFieldScreenState extends State<AddEditFieldScreen> {
                 children: [
                   Text(
                     label,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -533,7 +545,9 @@ class _AddEditFieldScreenState extends State<AddEditFieldScreen> {
                         : 'Tarih seçin',
                     style: TextStyle(
                       fontSize: 15,
-                      fontWeight: date != null ? FontWeight.w500 : FontWeight.normal,
+                      fontWeight: date != null
+                          ? FontWeight.w500
+                          : FontWeight.normal,
                       color: date != null ? Colors.black87 : Colors.grey[500],
                     ),
                   ),

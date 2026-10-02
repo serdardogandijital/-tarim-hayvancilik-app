@@ -1,69 +1,39 @@
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/animal.dart';
+import 'safe_list_store.dart';
 
 class AnimalStorageService {
-  static const String _animalsKey = 'animals_data';
-  static const String _isInitializedKey = 'animals_initialized';
-
-  // Hayvanları kaydet
-  static Future<void> saveAnimals(List<Animal> animals) async {
-    final prefs = await SharedPreferences.getInstance();
-    final animalsJson = animals.map((animal) => animal.toJson()).toList();
-    await prefs.setString(_animalsKey, jsonEncode(animalsJson));
-  }
-
-  // Hayvanları yükle
-  static Future<List<Animal>> loadAnimals() async {
-    final prefs = await SharedPreferences.getInstance();
-    final animalsString = prefs.getString(_animalsKey);
-    final isInitialized = prefs.getBool(_isInitializedKey) ?? false;
-    
-    // İlk açılışta initialized olarak işaretle
-    if (!isInitialized) {
-      await prefs.setBool(_isInitializedKey, true);
+  static final _store = SafeListStore<Animal>(
+    'animals_data',
+    Animal.fromJson,
+    (value) => value.toJson(),
+  );
+  static Future<List<Animal>> loadAnimals() => _store.load();
+  static Future<void> saveAnimals(List<Animal> records) =>
+      _store.replace(records);
+  static Future<void> addAnimal(Animal record) => _store.change((records) {
+    if (records.any((item) => item.id == record.id)) {
+      throw StateError('Duplicate id');
     }
-    
-    if (animalsString == null || animalsString.isEmpty) {
-      return [];
-    }
-    
-    try {
-      final List<dynamic> animalsJson = jsonDecode(animalsString);
-      return animalsJson.map((json) => Animal.fromJson(json)).toList();
-    } catch (e) {
-      print('Hayvan verileri yüklenirken hata: $e');
-      return [];
-    }
-  }
-
-  // Tek bir hayvanı güncelle
-  static Future<void> updateAnimal(Animal updatedAnimal) async {
-    final animals = await loadAnimals();
-    final index = animals.indexWhere((a) => a.id == updatedAnimal.id);
-    if (index != -1) {
-      animals[index] = updatedAnimal;
-      await saveAnimals(animals);
-    }
-  }
-
-  // Hayvan ekle
-  static Future<void> addAnimal(Animal animal) async {
-    final animals = await loadAnimals();
-    animals.add(animal);
-    await saveAnimals(animals);
-  }
-
-  // Hayvan sil
-  static Future<void> deleteAnimal(String animalId) async {
-    final animals = await loadAnimals();
-    animals.removeWhere((a) => a.id == animalId);
-    await saveAnimals(animals);
-  }
-
-  // Tüm verileri temizle
-  static Future<void> clearAllData() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_animalsKey);
-  }
+    records.add(record);
+  });
+  static Future<void> updateAnimal(Animal record) => _store.change((records) {
+    final index = records.indexWhere((item) => item.id == record.id);
+    if (index == -1) throw StateError('Missing record');
+    records[index] = record;
+  });
+  static Future<void> changeAnimals(void Function(List<Animal>) update) =>
+      _store.change(update);
+  static Future<void> mutateAnimal(String id, Animal Function(Animal) update) =>
+      _store.change((records) {
+        final index = records.indexWhere((a) => a.id == id);
+        if (index < 0) {
+          throw const RecordValidationFailure(
+            'Hayvan kaydı artık mevcut değil.',
+          );
+        }
+        records[index] = update(records[index]);
+      });
+  static Future<void> deleteAnimal(String id) =>
+      _store.change((records) => records.removeWhere((item) => item.id == id));
+  static Future<void> clearAllData() => _store.replace([]);
 }

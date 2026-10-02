@@ -1,0 +1,80 @@
+Çiftçi+ — misafir analiz hakları ve reklamlar
+
+Uygulanan kural
+- İlk kullanım: toplam 3 hak; ilk gün ayrıca günlük bonus yok.
+- Sonraki giriş yapılan her Türkiye takvim gününde +1 hak. Aynı gün
+  tekrar açmak hak vermez. Girilmeyen günler birikmiş bonus oluşturmaz.
+- Kullanılmayan haklar birikir. Gün geri alınırsa tekrar bonus verilmez.
+- Başarılı bitki fotoğrafı veya üç açılı hayvan analizi: 1 hak.
+- Eksik/geçersiz fotoğraf, API hatası, tanımlanamayan hayvan/bitki ve
+  bitki sonucunun kaydedilememesi: hak tüketmez.
+- Yalnız mezura ölçülerinden hesaplama hak tüketmez. Sohbet, kayıtlar ve
+  diğer mevcut özellikler bu fotoğraf analiz kotasına bağlanmadı.
+- Kullanıcı isterse hakları bitmeden de ödüllü reklam izleyebilir.
+  Her tamamlanan ödüllü reklam +1 hak verir. Kapatma/yükleme hatası ödül
+  vermez. Tekrarlanan ödül callback'i aynı ödülü iki kez yazmaz.
+
+Hesap ve güvenlik sınırı
+- Giriş zorunlu değil; bu sürüm misafir cihaz bakiyesi kullanıyor.
+  Apple/Google/telefon/e-posta girişi ve hesap sunucusu kurulmadı.
+- Bakiye FlutterSecureStorage ile tutulur. Bu, sunucu doğrulaması değildir.
+  Cihaz saati ileri alınarak yeni gün yaratılması, değiştirilmiş istemci,
+  kaldırıp yeniden kurma ve başka telefona geçme için hesap temelli garanti
+  verilemez. iOS Keychain'in kurulumlar arası davranışına güvenilmez.
+- Sunucu sürümünde bakiye hareketleri atomik/idempotent olmalı; kayıt
+  bonusu kullanıcıya bir defa, günlük bonus sunucu gününe göre verilmeli.
+  Analiz kotası sunucuda uygulanmalı, reklam ödülleri AdMob SSV ile
+  doğrulanmalı. Mevcut kişisel API anahtarı akışı da sunucuya taşınmalı.
+- Başarısız ödül yazımı aynı oturumda reklam izletmeden tekrar denenir.
+  Kalıcı depoya hiç yazılamadan uygulama kapanırsa yerel sistem ödülü
+  güvenilir biçimde geri getiremez; SSV bu yayın öncesi riski giderir.
+
+Reklam yerleşimi ve izin
+- Ana sekmelerde altta uyarlanabilir banner; içerik/düğmelerin üzerinde
+  overlay yok. Navigasyonla arasında boşluk ve Reklam etiketi var.
+- Form, kamera, analiz sonucu gibi tam ekran işlemlere banner eklenmedi.
+- Otomatik tam ekran reklam ve zamanlayıcı yok. Ödüllü reklam yalnız
+  açıklama ekranındaki “Reklam izle · +1 hak” seçimi ile başlar.
+- UMP izin akışı uygulanır; canRequestAds olmadan reklam istenmez.
+  Gerektiğinde reklam gizlilik seçenekleri giriş noktası gösterilir.
+- Yükleme hatasında hızlı sonsuz tekrar döngüsü yok. Geç gelen reklam,
+  yükleme zaman aşımı yaşandıysa gösterilmeyip dispose edilir.
+
+Canlı reklam bağlantısı — HENÜZ YAPILMADI
+- Android ve iOS AdMob uygulama kayıtlarını ayrı doğrulayın. Yerelde iki
+  native app ID aynı; bu kayıtların doğru platformlara ait olduğu panelden
+  teyit edilmedi. Yanlışsa ilgili native app ID güncellenmeli.
+- Her platform için bir Banner ve bir Ödüllü (Rewarded) birimi oluşturun.
+  Ödül miktarı 1, ödül adı “analiz hakkı” olmalı. Eski Ödüllü Geçiş
+  (Rewarded Interstitial) birimi bu kodla kullanılmamalı.
+- Release derlemesine şu dart-define değerleri verilir:
+  ADMOB_ANDROID_BANNER
+  ADMOB_ANDROID_REWARDED
+  ADMOB_IOS_BANNER
+  ADMOB_IOS_REWARDED
+- Değer yoksa ilgili format release'te kapalıdır; test kimliğine veya
+  eski birime otomatik geçiş yok. Debug/profile yalnız Google test reklam
+  kimliklerini kullanır; gerçek reklama tıklayarak test yapılmaz.
+- AdMob Privacy & Messaging mesajları bu uygulama ID'leri için panelde
+  hazırlanmalı. iPhone 14 Pro Max'te test reklamının tamamlanması, erken
+  kapanması, izin ve banner yerleşimi cihaz üzerinde doğrulanmalı.
+- Düzeltme mağazada yayınlandıktan sonra AdMob politika incelemesi istenir.
+  Önceki “tüm reklamları kaldırdık” taslağı artık bu sürüme uygun değil.
+
+Yeni inceleme taslağı (yalnız bu sürüm yayınlanınca gerçek sürümle kullanın)
+“Otomatik ödüllü geçiş reklamı akışını kaldırdık. Yeni sürümde ödüllü reklam
+öncesinde 1 analiz hakkı ödülü açıkça belirtiliyor; kullanıcı ‘Şimdi değil’
+ile vazgeçebiliyor veya ‘Reklam izle · +1 hak’ ile kabul edebiliyor. Ödül
+yalnız SDK'nın onUserEarnedReward olayıyla tanımlanıyor. Reklamı kapatmak
+mevcut hakları azaltmıyor, uygulamanın kayıt ve diğer özelliklerini
+engellemiyor. Günlük ücretsiz hak ve başlangıç hakları sunuluyor.
+Banner ayrı bir alanda gösteriliyor. Yeni sürümün incelenmesini istiyoruz.”
+
+Resmi kaynaklar
+https://developers.google.com/admob/flutter/rewarded
+https://developers.google.com/admob/flutter/banner
+https://developers.google.com/admob/flutter/privacy
+https://support.google.com/admob/answer/7313578
+
+Bu dosya kurulum/review hazırlığıdır. Panelde reklam birimi oluşturulmadı,
+canlı reklam gösterilmedi, mağaza yayını ve inceleme başvurusu yapılmadı.

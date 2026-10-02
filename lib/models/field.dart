@@ -29,15 +29,24 @@ class Field {
 
   int get completedTasksCount => tasks.where((t) => t.isCompleted).length;
   int get totalTasksCount => tasks.length;
-  double get progress => totalTasksCount > 0 ? completedTasksCount / totalTasksCount : 0;
+  double get progress =>
+      totalTasksCount > 0 ? completedTasksCount / totalTasksCount : 0;
   bool get hasLocation => latitude != null && longitude != null;
 
   bool get isEmpty => currentCrop == null;
-  bool get hasUpcomingTask => tasks.any((t) => !t.isCompleted && t.dueDate != null && 
-      t.dueDate!.isAfter(DateTime.now()) && 
-      t.dueDate!.isBefore(DateTime.now().add(const Duration(days: 7))));
-  bool get hasOverdueTask => tasks.any((t) => !t.isCompleted && t.dueDate != null && 
-      t.dueDate!.isBefore(DateTime.now()));
+  bool get hasUpcomingTask => tasks.any(
+    (t) =>
+        !t.isCompleted &&
+        t.dueDate != null &&
+        t.dueDate!.isAfter(DateTime.now()) &&
+        t.dueDate!.isBefore(DateTime.now().add(const Duration(days: 7))),
+  );
+  bool get hasOverdueTask => tasks.any(
+    (t) =>
+        !t.isCompleted &&
+        t.dueDate != null &&
+        t.dueDate!.isBefore(DateTime.now()),
+  );
 
   Map<String, dynamic> toJson() {
     return {
@@ -59,15 +68,20 @@ class Field {
     return Field(
       id: json['id'],
       name: json['name'],
-      area: json['area'],
+      area: (json['area'] as num).toDouble(),
       currentCrop: json['currentCrop'],
-      plantingDate: json['plantingDate'] != null ? DateTime.parse(json['plantingDate']) : null,
-      harvestDate: json['harvestDate'] != null ? DateTime.parse(json['harvestDate']) : null,
+      plantingDate: json['plantingDate'] != null
+          ? DateTime.parse(json['plantingDate'])
+          : null,
+      harvestDate: json['harvestDate'] != null
+          ? DateTime.parse(json['harvestDate'])
+          : null,
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
       locationName: json['locationName'],
       ownership: _ownershipFromString(json['ownership']),
-      tasks: (json['tasks'] as List?)?.map((t) => Task.fromJson(t)).toList() ?? [],
+      tasks:
+          (json['tasks'] as List?)?.map((t) => Task.fromJson(t)).toList() ?? [],
     );
   }
 
@@ -172,10 +186,10 @@ class Task {
 }
 
 enum TaskCategory {
-  beforePlanting,  // Ekimden önce
-  planting,        // Ekim sırası
-  afterPlanting,   // Ekimden sonra
-  maintenance,     // Bakım
-  harvest,         // Hasat
-  other,           // Diğer
+  beforePlanting, // Ekimden önce
+  planting, // Ekim sırası
+  afterPlanting, // Ekimden sonra
+  maintenance, // Bakım
+  harvest, // Hasat
+  other, // Diğer
 }

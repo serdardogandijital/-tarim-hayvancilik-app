@@ -9,11 +9,20 @@ class TodayPlantingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (selectedCity == null) {
+      return const Card(
+        child: ListTile(
+          leading: Icon(Icons.agriculture_outlined),
+          title: Text('Bugün ne ekilir?'),
+          subtitle: Text('Bölgenize uygun takvimi görmek için il seçin.'),
+        ),
+      );
+    }
+
     final now = DateTime.now();
-    final month = now.month;
     final cityName = selectedCity ?? 'Bu Bölgede';
     final region = PlantingData.getRegion(selectedCity);
-    
+
     final todayCrops = PlantingData.getTodayPlantableCrops(selectedCity);
 
     return Container(
@@ -22,10 +31,7 @@ class TodayPlantingCard extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF7A9B5C),
-            Color(0xFFA8C686),
-          ],
+          colors: [Color(0xFF7A9B5C), Color(0xFFA8C686)],
         ),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
@@ -72,11 +78,7 @@ class TodayPlantingCard extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.info_outline,
-                    color: Colors.white,
-                    size: 20,
-                  ),
+                  Icon(Icons.info_outline, color: Colors.white, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -123,10 +125,7 @@ class TodayPlantingCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.15),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.2),
-          width: 1,
-        ),
+        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
       ),
       child: Row(
         children: [
@@ -164,5 +163,4 @@ class TodayPlantingCard extends StatelessWidget {
       ),
     );
   }
-
 }

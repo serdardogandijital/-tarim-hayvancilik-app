@@ -16,6 +16,7 @@ class WeatherCard extends StatefulWidget {
 class _WeatherCardState extends State<WeatherCard> {
   final WeatherService _weatherService = WeatherService();
   WeatherData? _weatherData;
+  int _requestId = 0;
   bool _isLoading = false;
   String? _error;
 
@@ -35,6 +36,7 @@ class _WeatherCardState extends State<WeatherCard> {
   }
 
   Future<void> _fetchWeather() async {
+    final requestId = ++_requestId;
     if (widget.selectedCity == null && widget.position == null) {
       return;
     }
@@ -46,14 +48,19 @@ class _WeatherCardState extends State<WeatherCard> {
 
     try {
       WeatherData? weather;
-      
+
       if (widget.selectedCity != null) {
-        final multipleWeather = await _weatherService.getMultipleSourcesWeather(widget.selectedCity!);
+        final multipleWeather = await _weatherService.getMultipleSourcesWeather(
+          widget.selectedCity!,
+        );
         weather = _weatherService.getAverageWeather(multipleWeather);
       } else if (widget.position != null) {
-        weather = await _weatherService.getWeatherByCoordinates(widget.position!);
+        weather = await _weatherService.getWeatherByCoordinates(
+          widget.position!,
+        );
       }
 
+      if (!mounted || requestId != _requestId) return;
       setState(() {
         _weatherData = weather;
         _isLoading = false;
@@ -62,6 +69,7 @@ class _WeatherCardState extends State<WeatherCard> {
         }
       });
     } catch (e) {
+      if (!mounted || requestId != _requestId) return;
       setState(() {
         _error = 'Hata: ${e.toString()}';
         _isLoading = false;
@@ -96,10 +104,7 @@ class _WeatherCardState extends State<WeatherCard> {
               const SizedBox(width: 8),
               const Text(
                 'Hava Durumu',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const Spacer(),
               if (_isLoading)
@@ -218,25 +223,20 @@ class _WeatherCardState extends State<WeatherCard> {
   }
 
   Widget _buildWeatherInfo(
-      IconData icon, String value, String label, BuildContext context) {
+    IconData icon,
+    String value,
+    String label,
+    BuildContext context,
+  ) {
     return Column(
       children: [
         Icon(icon, color: Theme.of(context).colorScheme.primary),
         const SizedBox(height: 8),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
-        ),
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
       ],
     );
   }

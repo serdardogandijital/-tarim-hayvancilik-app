@@ -1,3 +1,6 @@
+import 'animal_tracking_screen.dart';
+import 'farm_records_screen.dart';
+import '../services/safe_list_store.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -27,6 +30,19 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
     _animal = widget.animal;
   }
 
+  Future<void> _openTracking(int tab) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            AnimalTrackingScreen(animalId: _animal.id, initialTab: tab),
+      ),
+    );
+    final animals = await AnimalStorageService.loadAnimals();
+    final current = animals.where((a) => a.id == _animal.id).firstOrNull;
+    if (mounted && current != null) setState(() => _animal = current);
+  }
+
   Widget _buildAttachmentsCard(BuildContext context) {
     return Card(
       child: Padding(
@@ -36,10 +52,7 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
           children: [
             const Text(
               'Belgeler & Fotoğraflar',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const Divider(),
             if (_animal.attachments.isEmpty)
@@ -64,8 +77,10 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   subtitle: Text(
-                    DateFormat('dd MMM yyyy, HH:mm', 'tr_TR')
-                        .format(attachment.addedAt),
+                    DateFormat(
+                      'dd MMM yyyy, HH:mm',
+                      'tr_TR',
+                    ).format(attachment.addedAt),
                   ),
                   trailing: IconButton(
                     icon: const Icon(Icons.open_in_new),
@@ -96,9 +111,9 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
 
   void _showSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   IconData _attachmentIcon(String type, String fileName) {
@@ -112,18 +127,24 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
   }
 
   Future<void> _updateAnimal(Animal updatedAnimal) async {
-    await AnimalStorageService.updateAnimal(updatedAnimal);
-    setState(() {
-      _animal = updatedAnimal;
-    });
+    try {
+      await AnimalStorageService.updateAnimal(updatedAnimal);
+      if (!mounted) return;
+      setState(() => _animal = updatedAnimal);
+    } on StorageFailure catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
   }
 
   IconData _getAnimalIcon(String type) {
     final lowerType = type.toLowerCase();
-    
+
     // Büyükbaş hayvanlar
-    if (lowerType.contains('inek') || 
-        lowerType.contains('dana') || 
+    if (lowerType.contains('inek') ||
+        lowerType.contains('dana') ||
         lowerType.contains('tosun') ||
         lowerType.contains('boğa') ||
         lowerType.contains('düve') ||
@@ -131,22 +152,22 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
         lowerType.contains('öküz')) {
       return Icons.pets;
     }
-    
+
     // Küçükbaş hayvanlar - Koyun
-    if (lowerType.contains('koyun') || 
-        lowerType.contains('koç') || 
+    if (lowerType.contains('koyun') ||
+        lowerType.contains('koç') ||
         lowerType.contains('kuzu') ||
         lowerType.contains('toklu')) {
       return Icons.cruelty_free;
     }
-    
+
     // Küçükbaş hayvanlar - Keçi
-    if (lowerType.contains('keçi') || 
+    if (lowerType.contains('keçi') ||
         lowerType.contains('oğlak') ||
         lowerType.contains('teke')) {
       return Icons.pets_outlined;
     }
-    
+
     return Icons.pets;
   }
 
@@ -179,7 +200,9 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
                 context: context,
                 builder: (context) => AlertDialog(
                   title: const Text('Hayvanı Sil'),
-                  content: Text('${_animal.name} kaydını silmek istediğinize emin misiniz?'),
+                  content: Text(
+                    '${_animal.name} kaydını silmek istediğinize emin misiniz?',
+                  ),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
@@ -190,7 +213,10 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
                         Navigator.pop(context);
                         Navigator.pop(context, 'delete');
                       },
-                      child: const Text('Sil', style: TextStyle(color: Colors.red)),
+                      child: const Text(
+                        'Sil',
+                        style: TextStyle(color: Colors.red),
+                      ),
                     ),
                   ],
                 ),
@@ -212,7 +238,9 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
                     children: [
                       CircleAvatar(
                         radius: 30,
-                        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.primaryContainer,
                         child: Icon(
                           _getAnimalIcon(_animal.type),
                           size: 30,
@@ -248,77 +276,125 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          _buildInfoCard(
-            context,
-            'Genel Bilgiler',
-            [
-              _buildInfoRow(Icons.cake, 'Doğum Tarihi',
-                  DateFormat('dd MMMM yyyy', 'tr_TR').format(_animal.birthDate)),
-              _buildInfoRow(Icons.calendar_today, 'Yaş', '${_animal.ageInYears} yaşında'),
-            ],
-          ),
+          _buildInfoCard(context, 'Genel Bilgiler', [
+            _buildInfoRow(
+              Icons.cake,
+              'Doğum Tarihi',
+              DateFormat('dd MMMM yyyy', 'tr_TR').format(_animal.birthDate),
+            ),
+            _buildInfoRow(
+              Icons.calendar_today,
+              'Yaş',
+              '${_animal.ageInYears} yaşında',
+            ),
+          ]),
           const SizedBox(height: 16),
-          _buildInfoCard(
-            context,
-            'Üreme Bilgileri',
-            [
-              if (_animal.lastBirthDate != null)
-                _buildInfoRow(
-                  Icons.child_care,
-                  'Son Doğurma Tarihi',
-                  DateFormat('dd MMMM yyyy', 'tr_TR').format(_animal.lastBirthDate!),
+          _buildInfoCard(context, 'Üreme Bilgileri', [
+            if (_animal.latestBirthDate != null)
+              _buildInfoRow(
+                Icons.child_care,
+                'Son Doğurma Tarihi',
+                DateFormat(
+                  'dd MMMM yyyy',
+                  'tr_TR',
+                ).format(_animal.latestBirthDate!),
+              ),
+            if (_animal.daysSinceLastBirth != null)
+              _buildInfoRow(
+                Icons.access_time,
+                'Son Doğurmadan İtibaren',
+                '${_animal.daysSinceLastBirth} gün',
+              ),
+            if (_animal.nextHeatDate != null)
+              _buildInfoRow(
+                Icons.event,
+                'Sonraki Kızgınlık Takibi',
+                DateFormat(
+                  'dd MMMM yyyy',
+                  'tr_TR',
+                ).format(_animal.nextHeatDate!),
+              ),
+            if (_animal.daysUntilNextHeat != null)
+              _buildInfoRow(
+                Icons.timer,
+                'Kalan Süre',
+                _animal.daysUntilNextHeat! > 0
+                    ? '${_animal.daysUntilNextHeat} gün'
+                    : 'Bugün',
+                color: _animal.daysUntilNextHeat! <= 7 ? Colors.orange : null,
+              ),
+          ]),
+          const SizedBox(height: 16),
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.water_drop_outlined),
+                  title: const Text('Süt kayıtları ve grafik'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _openTracking(0),
                 ),
-              if (_animal.daysSinceLastBirth != null)
-                _buildInfoRow(
-                  Icons.access_time,
-                  'Son Doğurmadan İtibaren',
-                  '${_animal.daysSinceLastBirth} gün',
+                ListTile(
+                  leading: const Icon(Icons.family_restroom),
+                  title: const Text('Tohumlama ve doğum geçmişi'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _openTracking(1),
                 ),
-              if (_animal.nextHeatDate != null)
-                _buildInfoRow(
-                  Icons.event,
-                  'Sonraki Kızgınlık Takibi',
-                  DateFormat('dd MMMM yyyy', 'tr_TR').format(_animal.nextHeatDate!),
+                ListTile(
+                  leading: const Icon(Icons.account_balance_wallet_outlined),
+                  title: const Text('Bu hayvanın gelir–gideri'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => FarmRecordsScreen(
+                        initialTab: 1,
+                        ownerType: 'animal',
+                        ownerId: _animal.id,
+                        ownerName: _animal.name,
+                      ),
+                    ),
+                  ),
                 ),
-              if (_animal.daysUntilNextHeat != null)
-                _buildInfoRow(
-                  Icons.timer,
-                  'Kalan Süre',
-                  _animal.daysUntilNextHeat! > 0
-                      ? '${_animal.daysUntilNextHeat} gün'
-                      : 'Bugün',
-                  color: _animal.daysUntilNextHeat! <= 7 ? Colors.orange : null,
-                ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           _buildVaccineCard(context),
           const SizedBox(height: 16),
           _buildFeedCard(context),
+          TextButton.icon(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const FarmRecordsScreen()),
+            ),
+            icon: const Icon(Icons.inventory_2_outlined),
+            label: const Text('Yem ve malzeme stoklarını aç'),
+          ),
           const SizedBox(height: 16),
           _buildAttachmentsCard(context),
           if (_animal.notes.isNotEmpty) ...[
             const SizedBox(height: 16),
-            _buildInfoCard(
-              context,
-              'Notlar',
-              [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    _animal.notes,
-                    style: const TextStyle(fontSize: 15),
-                  ),
+            _buildInfoCard(context, 'Notlar', [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  _animal.notes,
+                  style: const TextStyle(fontSize: 15),
                 ),
-              ],
-            ),
+              ),
+            ]),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildInfoCard(BuildContext context, String title, List<Widget> children) {
+  Widget _buildInfoCard(
+    BuildContext context,
+    String title,
+    List<Widget> children,
+  ) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -327,10 +403,7 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
           children: [
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const Divider(),
             ...children,
@@ -340,7 +413,12 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value, {Color? color}) {
+  Widget _buildInfoRow(
+    IconData icon,
+    String label,
+    String value, {
+    Color? color,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -350,10 +428,7 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
           Expanded(
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: 15,
-                color: Colors.grey[700],
-              ),
+              style: TextStyle(fontSize: 15, color: Colors.grey[700]),
             ),
           ),
           Text(
@@ -381,10 +456,7 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
               children: [
                 const Text(
                   'Aşı Kayıtları',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 IconButton(
                   icon: const Icon(Icons.add_circle_outline),
@@ -405,17 +477,19 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
                 ),
               )
             else
-              ..._animal.vaccines.map((vaccine) => ListTile(
-                    leading: const Icon(Icons.vaccines, color: Colors.green),
-                    title: Text(vaccine.name),
-                    subtitle: Text(
-                      'Yapıldı: ${DateFormat('dd MMM yyyy', 'tr_TR').format(vaccine.date)}' +
-                          (vaccine.nextDate != null
-                              ? '\nSonraki: ${DateFormat('dd MMM yyyy', 'tr_TR').format(vaccine.nextDate!)}'
-                              : ''),
-                    ),
-                    isThreeLine: vaccine.nextDate != null,
-                  )),
+              ..._animal.vaccines.map(
+                (vaccine) => ListTile(
+                  leading: const Icon(Icons.vaccines, color: Colors.green),
+                  title: Text(vaccine.name),
+                  subtitle: Text(
+                    'Yapıldı: ${DateFormat('dd MMM yyyy', 'tr_TR').format(vaccine.date)}' +
+                        (vaccine.nextDate != null
+                            ? '\nSonraki: ${DateFormat('dd MMM yyyy', 'tr_TR').format(vaccine.nextDate!)}'
+                            : ''),
+                  ),
+                  isThreeLine: vaccine.nextDate != null,
+                ),
+              ),
           ],
         ),
       ),
@@ -434,10 +508,7 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
               children: [
                 const Text(
                   'Yem Bilgisi',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 IconButton(
                   icon: const Icon(Icons.edit),
@@ -491,7 +562,9 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
                 const SizedBox(height: 16),
                 ListTile(
                   title: const Text('Yapılma Tarihi'),
-                  subtitle: Text(DateFormat('dd MMMM yyyy', 'tr_TR').format(selectedDate)),
+                  subtitle: Text(
+                    DateFormat('dd MMMM yyyy', 'tr_TR').format(selectedDate),
+                  ),
                   trailing: const Icon(Icons.calendar_today),
                   onTap: () async {
                     final date = await showDatePicker(
@@ -507,14 +580,18 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
                 ),
                 ListTile(
                   title: const Text('Sonraki Aşı (Opsiyonel)'),
-                  subtitle: Text(nextDate != null
-                      ? DateFormat('dd MMMM yyyy', 'tr_TR').format(nextDate!)
-                      : 'Seçilmedi'),
+                  subtitle: Text(
+                    nextDate != null
+                        ? DateFormat('dd MMMM yyyy', 'tr_TR').format(nextDate!)
+                        : 'Seçilmedi',
+                  ),
                   trailing: const Icon(Icons.calendar_today),
                   onTap: () async {
                     final date = await showDatePicker(
                       context: context,
-                      initialDate: nextDate ?? DateTime.now().add(const Duration(days: 180)),
+                      initialDate:
+                          nextDate ??
+                          DateTime.now().add(const Duration(days: 180)),
                       firstDate: DateTime.now(),
                       lastDate: DateTime(2030),
                     );
@@ -542,11 +619,13 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
 
     if (result == true && nameController.text.isNotEmpty) {
       final updatedVaccines = List<VaccineRecord>.from(_animal.vaccines)
-        ..add(VaccineRecord(
-          name: nameController.text,
-          date: selectedDate,
-          nextDate: nextDate,
-        ));
+        ..add(
+          VaccineRecord(
+            name: nameController.text,
+            date: selectedDate,
+            nextDate: nextDate,
+          ),
+        );
 
       await _updateAnimal(_animal.copyWith(vaccines: updatedVaccines));
     }
@@ -573,7 +652,9 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
                 labelText: 'Günlük Yem Miktarı (kg)',
                 hintText: 'Örn: 5.5',
               ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -582,7 +663,9 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
                 labelText: 'Aylık Yem Maliyeti (₺)',
                 hintText: 'Örn: 1500',
               ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
             ),
           ],
         ),
@@ -603,10 +686,12 @@ class _AnimalDetailScreenState extends State<AnimalDetailScreen> {
       final dailyAmount = double.tryParse(dailyController.text);
       final monthlyCost = double.tryParse(costController.text);
 
-      await _updateAnimal(_animal.copyWith(
-        dailyFeedAmount: dailyAmount,
-        monthlyFeedCost: monthlyCost,
-      ));
+      await _updateAnimal(
+        _animal.copyWith(
+          dailyFeedAmount: dailyAmount,
+          monthlyFeedCost: monthlyCost,
+        ),
+      );
     }
   }
 }

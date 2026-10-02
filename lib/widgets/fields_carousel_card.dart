@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../models/field.dart';
 import '../screens/field_detail_screen.dart';
 
@@ -57,10 +56,7 @@ class FieldsCarouselCard extends StatelessWidget {
                     ),
                     Text(
                       '${fields.length} tarla kayıtlı',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                   ],
                 ),
@@ -68,7 +64,9 @@ class FieldsCarouselCard extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.search),
                 tooltip: 'Tarla ara',
-                onPressed: fields.isEmpty ? null : () => _showFieldSearch(context),
+                onPressed: fields.isEmpty
+                    ? null
+                    : () => _showFieldSearch(context),
               ),
             ],
           ),
@@ -99,9 +97,7 @@ class FieldsCarouselCard extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
-        onPressed: hasLocations
-            ? onViewAllFields
-            : null,
+        onPressed: hasLocations ? onViewAllFields : null,
         icon: const Icon(Icons.map_outlined),
         label: Text(
           hasLocations
@@ -116,8 +112,8 @@ class FieldsCarouselCard extends StatelessWidget {
     final statusColor = field.hasOverdueTask
         ? Colors.red
         : field.hasUpcomingTask
-            ? Colors.orange
-            : Colors.green;
+        ? Colors.orange
+        : Colors.green;
 
     return GestureDetector(
       onTap: () => _handleFieldTap(context, field),
@@ -176,10 +172,7 @@ class FieldsCarouselCard extends StatelessWidget {
                 ),
                 child: const Text(
                   'Boş',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               )
             else
@@ -197,10 +190,7 @@ class FieldsCarouselCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '${field.area} dönüm',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                   ),
                 ],
               ),
@@ -259,11 +249,7 @@ class FieldsCarouselCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.add_circle_outline,
-              size: 40,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.add_circle_outline, size: 40, color: Colors.grey[400]),
             const SizedBox(height: 8),
             Text(
               'Tarla Ekle',
@@ -282,9 +268,7 @@ class FieldsCarouselCard extends StatelessWidget {
   Future<void> _handleFieldTap(BuildContext context, Field field) async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => FieldDetailScreen(field: field),
-      ),
+      MaterialPageRoute(builder: (context) => FieldDetailScreen(field: field)),
     );
 
     if (result != null && result is Map<String, dynamic>) {
@@ -387,7 +371,8 @@ class FieldsCarouselCard extends StatelessWidget {
                             )
                           : ListView.separated(
                               itemCount: filteredFields.length,
-                              separatorBuilder: (_, __) => const SizedBox(height: 8),
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 8),
                               itemBuilder: (context, index) {
                                 final field = filteredFields[index];
                                 final cropLabel = field.currentCrop ?? 'Boş';
@@ -399,7 +384,9 @@ class FieldsCarouselCard extends StatelessWidget {
                                   ),
                                   title: Text(
                                     field.name,
-                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                   subtitle: Text(
                                     '${field.area} dönüm • $cropLabel',
@@ -408,7 +395,8 @@ class FieldsCarouselCard extends StatelessWidget {
                                   onTap: () {
                                     Navigator.pop(sheetContext);
                                     Future.microtask(
-                                      () => _handleFieldTap(parentContext, field),
+                                      () =>
+                                          _handleFieldTap(parentContext, field),
                                     );
                                   },
                                 );

@@ -1,4 +1,4 @@
-import 'dart:async';
+import '../widgets/analysis_credits_card.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -9,26 +9,29 @@ import 'package:path_provider/path_provider.dart';
 import '../services/livestock_ml_service.dart';
 
 class GalleryScaleScreen extends StatefulWidget {
-  const GalleryScaleScreen({super.key});
+  const GalleryScaleScreen({super.key, this.imagePicker, this.mlService});
+
+  final ImagePicker? imagePicker;
+  final LivestockMLService? mlService;
 
   @override
   State<GalleryScaleScreen> createState() => _GalleryScaleScreenState();
 }
 
 class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
-  final LivestockMLService _mlService = LivestockMLService();
-  final ImagePicker _picker = ImagePicker();
-  final List<XFile> _selectedImages = [];
-  
+  late final LivestockMLService _mlService =
+      widget.mlService ?? LivestockMLService();
+  late final ImagePicker _picker = widget.imagePicker ?? ImagePicker();
+  final List<XFile?> _selectedImages = List<XFile?>.filled(3, null);
+  int get _photoCount => _selectedImages.whereType<XFile>().length;
+
   final TextEditingController _chestController = TextEditingController();
   final TextEditingController _lengthController = TextEditingController();
-  
+
   bool _isAnalyzing = false;
-  bool _isSelecting = true;
   int _currentStep = 0;
   double? _estimatedWeight;
   double? _formulaWeight;
-  double? _confidence;
   String? _bodyCondition;
   String? _animalType;
   String? _breed;
@@ -55,13 +58,20 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
 
   // Schaeffer formülü ile ağırlık hesaplama
   double? _calculateFormulaWeight() {
-    final chest = double.tryParse(_chestController.text);
-    final length = double.tryParse(_lengthController.text);
-    
-    if (chest == null || length == null || chest <= 0 || length <= 0) {
+    final chest = double.tryParse(_chestController.text.replaceAll(',', '.'));
+    final length = double.tryParse(_lengthController.text.replaceAll(',', '.'));
+
+    if (chest == null ||
+        length == null ||
+        !chest.isFinite ||
+        !length.isFinite ||
+        chest <= 0 ||
+        length <= 0 ||
+        chest > 500 ||
+        length > 500) {
       return null;
     }
-    
+
     // Schaeffer formülü: (Göğüs çevresi² × Vücut uzunluğu) / 10800
     final weight = (chest * chest * length) / 10800;
     return weight;
@@ -74,26 +84,26 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
       maxWidth: 1024,
       maxHeight: 1024,
     );
-    
-    if (image == null) return;
+
+    if (image == null || !mounted) return;
 
     setState(() {
-      if (index < _selectedImages.length) {
-        _selectedImages[index] = image;
-      } else {
-        _selectedImages.add(image);
-      }
+      _selectedImages[index] = image;
     });
   }
 
   Future<void> _startAnalysis() async {
+    if (_isAnalyzing) return;
     // Ölçüm kontrolü
     final formulaW = _calculateFormulaWeight();
-    
-    if (formulaW == null && _selectedImages.isEmpty) {
+
+    if ((formulaW == null && _photoCount != 3) ||
+        (_photoCount > 0 && _photoCount < 3)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Ölçüm girin veya fotoğraf seçin'),
+          content: Text(
+            'Önden, yandan ve arkadan üç fotoğraf ekleyin veya fotoğraf seçmeden ölçü girin.',
+          ),
           backgroundColor: Colors.orange,
         ),
       );
@@ -101,7 +111,6 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
     }
 
     setState(() {
-      _isSelecting = false;
       _isAnalyzing = true;
       _currentStep = 0;
       _formulaWeight = formulaW;
@@ -109,36 +118,38 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
 
     try {
       Map<String, dynamic>? aiResult;
-      
+
       // Fotoğraf varsa AI analizi yap
-      if (_selectedImages.isNotEmpty) {
-        final bestImage = _selectedImages.length > 1 
-            ? _selectedImages[1] 
-            : _selectedImages[0];
+      if (_photoCount == 3) {
+        setState(() => _currentStep = 1);
+        aiResult = await _mlService.analyzeImages(
+          _selectedImages.map((image) => File(image!.path)).toList(),
+          chestCircumferenceCm: double.tryParse(
+            _chestController.text.replaceAll(',', '.'),
+          ),
+          bodyLengthCm: double.tryParse(
+            _lengthController.text.replaceAll(',', '.'),
+          ),
+        );
 
-        setState(() {
-          _currentStep = 1;
-        });
-
-        // 30 saniye timeout ile API çağrısı
-        aiResult = await _mlService.analyzeImage(File(bestImage.path))
-            .timeout(
-              const Duration(seconds: 30),
-              onTimeout: () {
-                throw TimeoutException('Analiz zaman aşımına uğradı');
-              },
-            );
-        
+        if (!mounted) return;
         // Hayvan bulunamadı hatası kontrolü
-        if (aiResult.containsKey('error') && aiResult['error'] == 'no_livestock') {
+        if (aiResult.containsKey('error') &&
+            (aiResult['error'] != 'analysis_failed' ||
+                _formulaWeight == null)) {
           setState(() {
             _isAnalyzing = false;
-            _isSelecting = true;
           });
+          if (aiResult['error'] == 'no_credits') {
+            await showCreditsDialog(context);
+            return;
+          }
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('❌ ${aiResult['message'] ?? 'Fotoğrafta sığır bulunamadı'}'),
+                content: Text(
+                  '❌ ${aiResult['message'] ?? 'Fotoğrafta sığır bulunamadı'}',
+                ),
                 backgroundColor: Colors.red,
                 duration: const Duration(seconds: 3),
               ),
@@ -149,50 +160,42 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
       }
 
       if (!mounted) return;
-      
+
       setState(() {
         _currentStep = 2;
       });
 
-      // Ağırlık hesaplama: Formül + AI birleştir
+      // Girilmiş gerçek ölçüleri, görsel tahminle karıştırma.
       double finalWeight;
-      double finalConfidence;
-      
-      if (_formulaWeight != null && aiResult != null && aiResult.containsKey('weight')) {
-        // İkisi de varsa: Formül %70, AI %30 ağırlıklı ortalama
-        final aiWeight = (aiResult['weight'] as num).toDouble();
-        finalWeight = (_formulaWeight! * 0.7) + (aiWeight * 0.3);
-        finalConfidence = 92.0;
-      } else if (_formulaWeight != null) {
+
+      if (_formulaWeight != null) {
         // Sadece formül
         finalWeight = _formulaWeight!;
-        finalConfidence = 90.0;
       } else if (aiResult != null && aiResult.containsKey('weight')) {
         // Sadece AI
         finalWeight = (aiResult['weight'] as num).toDouble();
-        finalConfidence = (aiResult['confidence'] as double) * 100;
       } else {
         // Hiçbiri yoksa hata göster
         setState(() {
           _isAnalyzing = false;
-          _isSelecting = true;
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('❌ Analiz yapılamadı. Lütfen ölçüleri girin veya tekrar deneyin.'),
+              content: Text(
+                '❌ Analiz yapılamadı. Lütfen ölçüleri girin veya tekrar deneyin.',
+              ),
               backgroundColor: Colors.red,
             ),
           );
         }
         return;
       }
-      
+
       setState(() {
         _isAnalyzing = false;
         _estimatedWeight = finalWeight;
-        _confidence = finalConfidence;
-        _bodyCondition = aiResult?['conditionScore'] ?? 'İdeal';
+        _bodyCondition = aiResult?['conditionScore'] ?? 'Değerlendirilemedi';
         _animalType = aiResult?['animalType'] ?? 'Sığır';
         _breed = aiResult?['breed'] ?? 'Bilinmiyor';
       });
@@ -203,14 +206,13 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      
+
       // Hata olsa bile formül sonucu varsa göster
       if (_formulaWeight != null) {
         setState(() {
           _isAnalyzing = false;
           _estimatedWeight = _formulaWeight;
-          _confidence = 90.0;
-          _bodyCondition = 'İdeal';
+          _bodyCondition = 'Değerlendirilemedi';
           _animalType = 'Sığır';
           _breed = 'Bilinmiyor';
         });
@@ -219,14 +221,15 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
         }
         return;
       }
-      
+
       setState(() {
         _isAnalyzing = false;
-        _isSelecting = true;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Hata: ${e.toString().contains('Timeout') ? 'Zaman aşımı - tekrar deneyin' : e.toString()}'),
+          content: Text(
+            'Hata: ${e.toString().contains('Timeout') ? 'Zaman aşımı - tekrar deneyin' : e.toString()}',
+          ),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 3),
         ),
@@ -243,7 +246,7 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
           children: [
             Icon(Icons.check_circle, color: Colors.green[600]),
             const SizedBox(width: 8),
-            const Text('Analiz Tamamlandı'),
+            const Expanded(child: Text('Analiz Tamamlandı')),
           ],
         ),
         content: Column(
@@ -261,14 +264,11 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
                 children: [
                   const Text(
                     'Tahmini Ağırlık',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${_estimatedWeight!.toStringAsFixed(1)} kg',
+                    '${_estimatedWeight!.toStringAsFixed(0)} kg',
                     style: const TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
@@ -278,7 +278,10 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
                   const SizedBox(height: 8),
                   if (_bodyCondition != null) ...[
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
@@ -295,11 +298,8 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
                     const SizedBox(height: 8),
                   ],
                   Text(
-                    'Güven: %${_confidence!.toStringAsFixed(0)}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[700],
-                    ),
+                    'Yaklaşık tahmin • Tartı ile doğrulayın',
+                    style: TextStyle(fontSize: 13, color: Colors.grey[700]),
                   ),
                 ],
               ),
@@ -333,7 +333,11 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
                     if (_breed != null)
                       Column(
                         children: [
-                          Icon(Icons.category, size: 20, color: Colors.blue[700]),
+                          Icon(
+                            Icons.category,
+                            size: 20,
+                            color: Colors.blue[700],
+                          ),
                           const SizedBox(height: 4),
                           Text(
                             _breed!,
@@ -350,12 +354,11 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
               ),
             const SizedBox(height: 12),
             Text(
-              'ChatGPT Vision AI ile analiz edildi.',
+              _formulaWeight != null
+                  ? 'Girdiğiniz ölçülerden hesaplanan yaklaşık ağırlık.'
+                  : 'Üç açıdan görsel tahmin; ölçek bilgisi yok. Tartı ile doğrulayın.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
           ],
         ),
@@ -374,12 +377,7 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
 
   void _showShareScreen() {
     // En iyi fotoğrafı seç
-    String? bestImagePath;
-    if (_selectedImages.isNotEmpty) {
-      bestImagePath = _selectedImages.length > 1 
-          ? _selectedImages[1].path 
-          : _selectedImages[0].path;
-    }
+    final bestImagePath = _selectedImages[1]?.path;
 
     showModalBottomSheet(
       context: context,
@@ -403,6 +401,13 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
       backgroundColor: const Color(0xFF1A1A1A),
       appBar: AppBar(
         title: const Text('Galeri ile Baskül'),
+        actions: [
+          IconButton(
+            tooltip: 'Analiz hakları',
+            onPressed: () => showCreditsDialog(context),
+            icon: const Icon(Icons.add_circle_outline),
+          ),
+        ],
         backgroundColor: const Color(0xFF1A1A1A),
         foregroundColor: Colors.white,
       ),
@@ -411,7 +416,11 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
   }
 
   Widget _buildAnalyzingView() {
-    final steps = ['Görsel hazırlanıyor...', 'AI analiz ediyor...', 'Sonuç hesaplanıyor...'];
+    final steps = [
+      'Görsel hazırlanıyor...',
+      'AI analiz ediyor...',
+      'Sonuç hesaplanıyor...',
+    ];
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -433,12 +442,13 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
   }
 
   Widget _buildSelectionView() {
-    final hasFormula = _chestController.text.isNotEmpty && _lengthController.text.isNotEmpty;
-    final canAnalyze = hasFormula || _selectedImages.isNotEmpty;
-    
+    final hasFormula = _calculateFormulaWeight() != null;
+    final canAnalyze = _photoCount == 3 || (hasFormula && _photoCount == 0);
+
     return SingleChildScrollView(
       child: Column(
         children: [
+          const AnalysisCreditsCard(),
           // Ölçüm Girişi
           Container(
             margin: const EdgeInsets.all(16),
@@ -480,7 +490,10 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
                         style: const TextStyle(color: Colors.white),
                         decoration: InputDecoration(
                           labelText: 'Göğüs Çevresi',
-                          labelStyle: TextStyle(color: Colors.grey[400], fontSize: 12),
+                          labelStyle: TextStyle(
+                            color: Colors.grey[400],
+                            fontSize: 12,
+                          ),
                           suffixText: 'cm',
                           suffixStyle: TextStyle(color: Colors.grey[500]),
                           filled: true,
@@ -489,7 +502,10 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
                             borderRadius: BorderRadius.circular(8),
                             borderSide: BorderSide.none,
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
                         ),
                         onChanged: (_) => setState(() {}),
                       ),
@@ -502,7 +518,10 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
                         style: const TextStyle(color: Colors.white),
                         decoration: InputDecoration(
                           labelText: 'Vücut Uzunluğu',
-                          labelStyle: TextStyle(color: Colors.grey[400], fontSize: 12),
+                          labelStyle: TextStyle(
+                            color: Colors.grey[400],
+                            fontSize: 12,
+                          ),
                           suffixText: 'cm',
                           suffixStyle: TextStyle(color: Colors.grey[500]),
                           filled: true,
@@ -511,7 +530,10 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
                             borderRadius: BorderRadius.circular(8),
                             borderSide: BorderSide.none,
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
                         ),
                         onChanged: (_) => setState(() {}),
                       ),
@@ -545,7 +567,7 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
               ],
             ),
           ),
-          
+
           // Fotoğraf Seçimi
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -553,9 +575,11 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
               children: [
                 Icon(Icons.photo_camera, color: Colors.grey[500], size: 16),
                 const SizedBox(width: 8),
-                Text(
-                  'Fotoğraf Ekle (Opsiyonel)',
-                  style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                Expanded(
+                  child: Text(
+                    'Fotoğraf analizi için 3 açı ekleyin',
+                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                  ),
                 ),
               ],
             ),
@@ -570,15 +594,28 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
               ),
             ),
           ),
-          
+
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Text(
+              'Aynı hayvan, üç farklı açı. Gövde ve ayaklar tam görünmeli; fotoğraflar net ve aydınlık olmalı. Fotoğraf tek başına kesin kilo ölçmez.',
+              style: TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ),
+          if (_photoCount > 0)
+            TextButton(
+              onPressed: () =>
+                  setState(() => _selectedImages.fillRange(0, 3, null)),
+              child: const Text('Fotoğrafları temizle'),
+            ),
           // Analiz Butonu
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                if (_selectedImages.isNotEmpty)
+                if (_photoCount > 0)
                   Text(
-                    '${_selectedImages.length}/3 fotoğraf seçildi',
+                    '$_photoCount/3 fotoğraf seçildi',
                     style: TextStyle(color: Colors.grey[500], fontSize: 12),
                   ),
                 const SizedBox(height: 12),
@@ -596,10 +633,15 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
                       disabledBackgroundColor: Colors.grey[800],
                     ),
                     child: Text(
-                      hasFormula 
-                          ? 'Ağırlık Hesapla' 
-                          : (_selectedImages.isEmpty ? 'Ölçüm veya Fotoğraf Gerekli' : 'AI ile Analiz Et'),
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      hasFormula
+                          ? 'Ağırlık Hesapla'
+                          : (_photoCount == 0
+                                ? 'Ölçüm veya Fotoğraf Gerekli'
+                                : '3 Fotoğrafı Birlikte Analiz Et'),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
@@ -612,8 +654,8 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
   }
 
   Widget _buildPhotoSlot(int index) {
-    final hasImage = index < _selectedImages.length;
-    
+    final hasImage = _selectedImages[index] != null;
+
     return Expanded(
       child: GestureDetector(
         onTap: () => _pickImage(index),
@@ -634,7 +676,7 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
                     fit: StackFit.expand,
                     children: [
                       Image.file(
-                        File(_selectedImages[index].path),
+                        File(_selectedImages[index]!.path),
                         fit: BoxFit.cover,
                       ),
                       Positioned(
@@ -646,7 +688,11 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
                             color: Colors.green,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.check, color: Colors.white, size: 14),
+                          child: const Icon(
+                            Icons.check,
+                            color: Colors.white,
+                            size: 14,
+                          ),
                         ),
                       ),
                       Positioned(
@@ -658,7 +704,10 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
                           color: Colors.black54,
                           child: Text(
                             _photoLabels[index],
-                            style: const TextStyle(color: Colors.white, fontSize: 10),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                         ),
@@ -669,7 +718,11 @@ class _GalleryScaleScreenState extends State<GalleryScaleScreen> {
               : Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.add_photo_alternate, color: Colors.grey[600], size: 32),
+                    Icon(
+                      Icons.add_photo_alternate,
+                      color: Colors.grey[600],
+                      size: 32,
+                    ),
                     const SizedBox(height: 8),
                     Text(
                       _photoLabels[index],
@@ -710,7 +763,9 @@ class _GalleryShareScreenState extends State<_GalleryShareScreen> {
     });
 
     try {
-      final boundary = _shareCardKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      final boundary =
+          _shareCardKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
       if (boundary == null) {
         throw Exception('Kart bulunamadı');
       }
@@ -720,7 +775,9 @@ class _GalleryShareScreenState extends State<_GalleryShareScreen> {
       final pngBytes = byteData!.buffer.asUint8List();
 
       final tempDir = await getTemporaryDirectory();
-      final file = File('${tempDir.path}/th_takvim_hayvan_${DateTime.now().millisecondsSinceEpoch}.png');
+      final file = File(
+        '${tempDir.path}/th_takvim_hayvan_${DateTime.now().millisecondsSinceEpoch}.png',
+      );
       await file.writeAsBytes(pngBytes);
 
       if (mounted) {
@@ -731,7 +788,8 @@ class _GalleryShareScreenState extends State<_GalleryShareScreen> {
 
       await Share.shareXFiles(
         [XFile(file.path)],
-        text: '🐄 Hayvanımın ağırlığı: ${widget.weight.toStringAsFixed(1)} kg\n\n📱 TH Takvim uygulaması ile ölçüldü!\n#THtakvim #hayvancılık #çiftçi',
+        text:
+            '🐄 Hayvanımın yaklaşık ağırlığı: ${widget.weight.toStringAsFixed(0)} kg\n\n📱 Çiftçi+ ile tahmin edildi. Tartı ile doğrulanmalıdır.\n#THtakvim #hayvancılık #çiftçi',
       );
     } catch (e) {
       if (mounted) {
@@ -770,7 +828,7 @@ class _GalleryShareScreenState extends State<_GalleryShareScreen> {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          
+
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -794,7 +852,7 @@ class _GalleryShareScreenState extends State<_GalleryShareScreen> {
               ],
             ),
           ),
-          
+
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -808,10 +866,7 @@ class _GalleryShareScreenState extends State<_GalleryShareScreen> {
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: [
-                            Colors.green[700]!,
-                            Colors.green[900]!,
-                          ],
+                          colors: [Colors.green[700]!, Colors.green[900]!],
                         ),
                         borderRadius: BorderRadius.circular(20),
                       ),
@@ -826,7 +881,11 @@ class _GalleryShareScreenState extends State<_GalleryShareScreen> {
                                   color: Colors.white.withOpacity(0.2),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: const Icon(Icons.pets, color: Colors.white, size: 24),
+                                child: const Icon(
+                                  Icons.pets,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
                               ),
                               const SizedBox(width: 12),
                               const Text(
@@ -839,10 +898,11 @@ class _GalleryShareScreenState extends State<_GalleryShareScreen> {
                               ),
                             ],
                           ),
-                          
+
                           const SizedBox(height: 20),
-                          
-                          if (widget.imagePath != null && File(widget.imagePath!).existsSync())
+
+                          if (widget.imagePath != null &&
+                              File(widget.imagePath!).existsSync())
                             ClipRRect(
                               borderRadius: BorderRadius.circular(16),
                               child: Image.file(
@@ -860,14 +920,21 @@ class _GalleryShareScreenState extends State<_GalleryShareScreen> {
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: const Center(
-                                child: Icon(Icons.pets, color: Colors.white54, size: 64),
+                                child: Icon(
+                                  Icons.pets,
+                                  color: Colors.white54,
+                                  size: 64,
+                                ),
                               ),
                             ),
-                          
+
                           const SizedBox(height: 20),
-                          
+
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(16),
@@ -882,7 +949,7 @@ class _GalleryShareScreenState extends State<_GalleryShareScreen> {
                                   ),
                                 ),
                                 Text(
-                                  '${widget.weight.toStringAsFixed(1)} kg',
+                                  '${widget.weight.toStringAsFixed(0)} kg',
                                   style: TextStyle(
                                     color: Colors.green[700],
                                     fontSize: 36,
@@ -892,11 +959,14 @@ class _GalleryShareScreenState extends State<_GalleryShareScreen> {
                               ],
                             ),
                           ),
-                          
+
                           const SizedBox(height: 20),
-                          
+
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.15),
                               borderRadius: BorderRadius.circular(12),
@@ -906,7 +976,11 @@ class _GalleryShareScreenState extends State<_GalleryShareScreen> {
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.verified, color: Colors.white.withOpacity(0.9), size: 16),
+                                    Icon(
+                                      Icons.verified,
+                                      color: Colors.white.withOpacity(0.9),
+                                      size: 16,
+                                    ),
                                     const SizedBox(width: 6),
                                     Text(
                                       'TH Takvim',
@@ -928,7 +1002,7 @@ class _GalleryShareScreenState extends State<_GalleryShareScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'Hayvanınızın Ücretsiz Kilo Ölçümünü Yapın',
+                                  'Hayvanınızın Yaklaşık Ağırlığını Hesaplayın',
                                   style: TextStyle(
                                     color: Colors.white.withOpacity(0.6),
                                     fontSize: 9,
@@ -941,19 +1015,16 @@ class _GalleryShareScreenState extends State<_GalleryShareScreen> {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   const Text(
                     'Paylaşmak için bir platform seçin',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                    ),
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   if (_isSharing)
                     const CircularProgressIndicator(color: Colors.green)
                   else
@@ -992,9 +1063,9 @@ class _GalleryShareScreenState extends State<_GalleryShareScreen> {
                         ),
                       ],
                     ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
@@ -1010,7 +1081,7 @@ class _GalleryShareScreenState extends State<_GalleryShareScreen> {
                       child: const Text('Ana Sayfaya Dön'),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 20),
                 ],
               ),
@@ -1043,10 +1114,7 @@ class _GalleryShareScreenState extends State<_GalleryShareScreen> {
           const SizedBox(height: 8),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 11,
-            ),
+            style: const TextStyle(color: Colors.white70, fontSize: 11),
           ),
         ],
       ),

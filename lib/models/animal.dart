@@ -1,3 +1,5 @@
+import 'farm_records.dart';
+
 class Animal {
   final String id;
   final String name;
@@ -7,10 +9,12 @@ class Animal {
   final DateTime? lastBirthDate;
   final DateTime? nextHeatDate;
   final String notes;
-  
+
   // Minimalist takip alanları
   final List<VaccineRecord> vaccines;
   final List<MilkRecord> milkRecords;
+  final List<BreedingRecord> breedingRecords;
+  final bool milkTrackingEnabled;
   final double? dailyFeedAmount; // kg
   final double? monthlyFeedCost; // TL
   final List<AnimalAttachment> attachments;
@@ -26,12 +30,17 @@ class Animal {
     this.notes = '',
     List<VaccineRecord>? vaccines,
     List<MilkRecord>? milkRecords,
+    List<BreedingRecord>? breedingRecords,
+    bool? milkTrackingEnabled,
     this.dailyFeedAmount,
     this.monthlyFeedCost,
     List<AnimalAttachment>? attachments,
-  })  : vaccines = vaccines ?? [],
-        milkRecords = milkRecords ?? [],
-        attachments = attachments ?? [];
+  }) : vaccines = vaccines ?? [],
+       milkRecords = milkRecords ?? [],
+       breedingRecords = breedingRecords ?? [],
+       milkTrackingEnabled =
+           milkTrackingEnabled ?? (milkRecords?.isNotEmpty ?? false),
+       attachments = attachments ?? [];
 
   int get ageInYears {
     final now = DateTime.now();
@@ -43,9 +52,25 @@ class Animal {
     return age;
   }
 
+  DateTime? get latestBirthDate {
+    final dates = [
+      if (lastBirthDate != null) lastBirthDate!,
+      ...breedingRecords
+          .where(
+            (r) => r.status == BreedingStatus.born && r.actualBirthDate != null,
+          )
+          .map((r) => r.actualBirthDate!),
+    ];
+    if (dates.isEmpty) return null;
+    dates.sort();
+    return dates.last;
+  }
+
   int? get daysSinceLastBirth {
-    if (lastBirthDate == null) return null;
-    return DateTime.now().difference(lastBirthDate!).inDays;
+    final date = latestBirthDate;
+    return date == null
+        ? null
+        : dayOnly(DateTime.now()).difference(dayOnly(date)).inDays;
   }
 
   int? get daysUntilNextHeat {
@@ -65,6 +90,8 @@ class Animal {
       'notes': notes,
       'vaccines': vaccines.map((v) => v.toJson()).toList(),
       'milkRecords': milkRecords.map((m) => m.toJson()).toList(),
+      'breedingRecords': breedingRecords.map((m) => m.toJson()).toList(),
+      'milkTrackingEnabled': milkTrackingEnabled,
       'dailyFeedAmount': dailyFeedAmount,
       'monthlyFeedCost': monthlyFeedCost,
       'attachments': attachments.map((a) => a.toJson()).toList(),
@@ -85,11 +112,20 @@ class Animal {
           ? DateTime.parse(json['nextHeatDate'])
           : null,
       notes: json['notes'] ?? '',
-      vaccines: (json['vaccines'] as List?)?.map((v) => VaccineRecord.fromJson(v)).toList(),
-      milkRecords: (json['milkRecords'] as List?)?.map((m) => MilkRecord.fromJson(m)).toList(),
+      vaccines: (json['vaccines'] as List?)
+          ?.map((v) => VaccineRecord.fromJson(v))
+          .toList(),
+      milkRecords: (json['milkRecords'] as List?)
+          ?.map((m) => MilkRecord.fromJson(m))
+          .toList(),
+      breedingRecords: (json['breedingRecords'] as List? ?? [])
+          .map((m) => BreedingRecord.fromJson(Map<String, dynamic>.from(m)))
+          .toList(),
+      milkTrackingEnabled: json['milkTrackingEnabled'],
       dailyFeedAmount: json['dailyFeedAmount']?.toDouble(),
       monthlyFeedCost: json['monthlyFeedCost']?.toDouble(),
-      attachments: (json['attachments'] as List?)
+      attachments:
+          (json['attachments'] as List?)
               ?.map((a) => AnimalAttachment.fromJson(a))
               .toList() ??
           [],
@@ -107,6 +143,8 @@ class Animal {
     String? notes,
     List<VaccineRecord>? vaccines,
     List<MilkRecord>? milkRecords,
+    List<BreedingRecord>? breedingRecords,
+    bool? milkTrackingEnabled,
     double? dailyFeedAmount,
     double? monthlyFeedCost,
     List<AnimalAttachment>? attachments,
@@ -122,6 +160,8 @@ class Animal {
       notes: notes ?? this.notes,
       vaccines: vaccines ?? this.vaccines,
       milkRecords: milkRecords ?? this.milkRecords,
+      breedingRecords: breedingRecords ?? this.breedingRecords,
+      milkTrackingEnabled: milkTrackingEnabled ?? this.milkTrackingEnabled,
       dailyFeedAmount: dailyFeedAmount ?? this.dailyFeedAmount,
       monthlyFeedCost: monthlyFeedCost ?? this.monthlyFeedCost,
       attachments: attachments ?? this.attachments,
@@ -145,14 +185,15 @@ class AnimalAttachment {
   });
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'type': type,
-        'name': name,
-        'filePath': filePath,
-        'addedAt': addedAt.toIso8601String(),
-      };
+    'id': id,
+    'type': type,
+    'name': name,
+    'filePath': filePath,
+    'addedAt': addedAt.toIso8601String(),
+  };
 
-  factory AnimalAttachment.fromJson(Map<String, dynamic> json) => AnimalAttachment(
+  factory AnimalAttachment.fromJson(Map<String, dynamic> json) =>
+      AnimalAttachment(
         id: json['id'],
         type: json['type'] ?? 'document',
         name: json['name'] ?? 'Belge',
@@ -183,11 +224,7 @@ class VaccineRecord {
   final DateTime date;
   final DateTime? nextDate;
 
-  VaccineRecord({
-    required this.name,
-    required this.date,
-    this.nextDate,
-  });
+  VaccineRecord({required this.name, required this.date, this.nextDate});
 
   Map<String, dynamic> toJson() => {
     'name': name,
@@ -198,7 +235,9 @@ class VaccineRecord {
   factory VaccineRecord.fromJson(Map<String, dynamic> json) => VaccineRecord(
     name: json['name'],
     date: DateTime.parse(json['date']),
-    nextDate: json['nextDate'] != null ? DateTime.parse(json['nextDate']) : null,
+    nextDate: json['nextDate'] != null
+        ? DateTime.parse(json['nextDate'])
+        : null,
   );
 }
 
@@ -207,10 +246,7 @@ class MilkRecord {
   final DateTime date;
   final double amount; // litre
 
-  MilkRecord({
-    required this.date,
-    required this.amount,
-  });
+  MilkRecord({required this.date, required this.amount});
 
   Map<String, dynamic> toJson() => {
     'date': date.toIso8601String(),

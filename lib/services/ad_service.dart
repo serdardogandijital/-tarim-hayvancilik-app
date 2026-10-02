@@ -1,125 +1,205 @@
 import 'dart:async';
 import 'dart:io';
-
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'analysis_credits.dart';
 
-class AdService {
-  AdService._internal();
+class AdUnits {
+  static bool get mobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+  // Never reuse the previous rewarded-interstitial ID for these formats.
+  static String get banner => !mobile
+      ? ''
+      : !kReleaseMode
+      ? (Platform.isAndroid
+            ? 'ca-app-pub-3940256099942544/9214589741'
+            : 'ca-app-pub-3940256099942544/2435281174')
+      : (Platform.isAndroid
+            ? const String.fromEnvironment('ADMOB_ANDROID_BANNER')
+            : const String.fromEnvironment('ADMOB_IOS_BANNER'));
+  static String get rewarded => !mobile
+      ? ''
+      : !kReleaseMode
+      ? (Platform.isAndroid
+            ? 'ca-app-pub-3940256099942544/5224354917'
+            : 'ca-app-pub-3940256099942544/1712485313')
+      : (Platform.isAndroid
+            ? const String.fromEnvironment('ADMOB_ANDROID_REWARDED')
+            : const String.fromEnvironment('ADMOB_IOS_REWARDED'));
+}
 
-  static final AdService instance = AdService._internal();
+class AdsConsent extends ChangeNotifier {
+  static final instance = AdsConsent();
+  Future<bool>? _initializing;
+  bool allowed = false;
+  bool privacyOptionsRequired = false;
 
-  RewardedInterstitialAd? _rewardedAd;
-  bool _isLoadingRewarded = false;
-  bool _shouldShowOnceLoaded = false;
-  Timer? _startupTimer;
-  Timer? _recurringTimer;
-
-  Future<void> initialize() async {
-    if (!_supportsMobileAds) return;
-
-    await MobileAds.instance.initialize();
-    await _loadRewardedInterstitial();
+  Future<bool> initialize() async {
+    final attempt = _initializing ??= _initialize();
+    final result = await attempt;
+    if (!result && identical(attempt, _initializing)) _initializing = null;
+    return result;
   }
 
-  void startAdSchedule() {
-    if (_startupTimer != null) return;
-    if (!_supportsMobileAds) return;
-
-    _startupTimer = Timer(const Duration(seconds: 15), () {
-      _requestRewardedInterstitial();
-      _recurringTimer?.cancel();
-      _recurringTimer =
-          Timer.periodic(const Duration(minutes: 5), (_) => _requestRewardedInterstitial());
-    });
-  }
-
-  void _requestRewardedInterstitial() {
-    if (_rewardedAd != null) {
-      _showRewardedAd();
-      return;
+  Future<bool> _initialize() async {
+    if (!AdUnits.mobile || (AdUnits.banner.isEmpty && AdUnits.rewarded.isEmpty)) {
+      return false;
     }
-
-    _shouldShowOnceLoaded = true;
-    unawaited(_loadRewardedInterstitial());
+    try {
+      final updated = Completer<void>();
+      ConsentInformation.instance.requestConsentInfoUpdate(
+        ConsentRequestParameters(),
+        () {
+          if (!updated.isCompleted) updated.complete();
+        },
+        (_) {
+          if (!updated.isCompleted) updated.complete();
+        },
+      );
+      await updated.future.timeout(const Duration(seconds: 20));
+      await ConsentForm.loadAndShowConsentFormIfRequired((_) {});
+      allowed = await ConsentInformation.instance.canRequestAds();
+      privacyOptionsRequired =
+          await ConsentInformation.instance
+              .getPrivacyOptionsRequirementStatus() ==
+          PrivacyOptionsRequirementStatus.required;
+      if (allowed) await MobileAds.instance.initialize();
+    } catch (_) {
+      allowed = false;
+    }
+    notifyListeners();
+    return allowed;
   }
 
-  Future<void> _loadRewardedInterstitial() async {
-    if (_isLoadingRewarded) return;
-    if (!_supportsMobileAds) return;
+  Future<void> showPrivacyOptions() async {
+    await ConsentForm.showPrivacyOptionsForm((_) {});
+    allowed = await ConsentInformation.instance.canRequestAds();
+    notifyListeners();
+  }
+}
 
-    _isLoadingRewarded = true;
+abstract class RewardedGateway {
+  Future<void> show(Future<void> Function() earned);
+}
 
-    await RewardedInterstitialAd.load(
-      adUnitId: _rewardedInterstitialUnitId,
+class GoogleRewardedGateway implements RewardedGateway {
+  @override
+  Future<void> show(Future<void> Function() earned) async {
+    if (AdUnits.rewarded.isEmpty ||
+        !await AdsConsent.instance.initialize() ||
+        !AdsConsent.instance.allowed) {
+      throw StateError(
+        'Reklam şu anda kullanılamıyor. Günlük bonus hakkınız devam eder.',
+      );
+    }
+    final loaded = Completer<RewardedAd>();
+    var abandoned = false;
+    await RewardedAd.load(
+      adUnitId: AdUnits.rewarded,
       request: const AdRequest(),
-      rewardedInterstitialAdLoadCallback: RewardedInterstitialAdLoadCallback(
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
-          _rewardedAd = ad;
-          _isLoadingRewarded = false;
-          _attachFullScreenCallbacks(ad);
-
-          if (_shouldShowOnceLoaded) {
-            _shouldShowOnceLoaded = false;
-            _showRewardedAd();
+          if (abandoned) {
+            ad.dispose();
+          } else {
+            loaded.complete(ad);
           }
         },
-        onAdFailedToLoad: (error) {
-          debugPrint('Rewarded interstitial failed to load: $error');
-          _isLoadingRewarded = false;
-          _rewardedAd = null;
-
-          // Retry with simple backoff to avoid spamming the network.
-          unawaited(Future<void>.delayed(const Duration(seconds: 3), () {
-            _loadRewardedInterstitial();
-          }));
+        onAdFailedToLoad: (_) {
+          if (!abandoned) {
+            loaded.completeError(
+              StateError('Reklam bulunamadı. Daha sonra tekrar deneyin.'),
+            );
+          }
         },
       ),
     );
-  }
-
-  void _showRewardedAd() {
-    final ad = _rewardedAd;
-    if (ad == null) {
-      _shouldShowOnceLoaded = true;
-      unawaited(_loadRewardedInterstitial());
-      return;
+    late RewardedAd ad;
+    try {
+      ad = await loaded.future.timeout(const Duration(seconds: 30));
+    } catch (_) {
+      abandoned = true;
+      rethrow;
     }
-
-    ad.show(onUserEarnedReward: (adWithoutView, reward) {
-      debugPrint('User earned reward: ${reward.amount} ${reward.type}');
-    });
-    _rewardedAd = null;
-  }
-
-  void _attachFullScreenCallbacks(RewardedInterstitialAd ad) {
+    final closed = Completer<void>();
+    Future<void>? rewardWrite;
+    Object? rewardError;
     ad.fullScreenContentCallback = FullScreenContentCallback(
-      onAdShowedFullScreenContent: (ad) {
-        debugPrint('Rewarded interstitial showed.');
-      },
       onAdDismissedFullScreenContent: (ad) {
         ad.dispose();
-        _rewardedAd = null;
-        _loadRewardedInterstitial();
+        if (!closed.isCompleted) closed.complete();
       },
-      onAdFailedToShowFullScreenContent: (ad, error) {
-        debugPrint('Rewarded interstitial failed to show: $error');
+      onAdFailedToShowFullScreenContent: (ad, _) {
         ad.dispose();
-        _rewardedAd = null;
-        _loadRewardedInterstitial();
+        if (!closed.isCompleted) {
+          closed.completeError(StateError('Reklam açılamadı.'));
+        }
       },
     );
-  }
-
-  bool get _supportsMobileAds => Platform.isAndroid || Platform.isIOS;
-
-  String get _rewardedInterstitialUnitId {
-    if (Platform.isAndroid) {
-      return 'ca-app-pub-3063450268551990/8392704645';
-    } else if (Platform.isIOS) {
-      return 'ca-app-pub-3063450268551990/8392704645';
+    try {
+      await ad.show(
+        onUserEarnedReward: (_, _) {
+          // Start saving immediately, not when the ad is closed.
+          rewardWrite ??= earned().catchError((Object error) {
+            rewardError = error;
+          });
+        },
+      );
+      await closed.future;
+      await rewardWrite;
+      if (rewardError != null) throw rewardError!;
+    } catch (_) {
+      await ad.dispose();
+      rethrow;
     }
+  }
+}
 
-    throw UnsupportedError('Unsupported platform for mobile ads.');
+class RewardCredits extends ChangeNotifier {
+  static final instance = RewardCredits(
+    AnalysisCredits.instance,
+    GoogleRewardedGateway(),
+  );
+  RewardCredits(this.credits, this.gateway);
+  final AnalysisCredits credits;
+  final RewardedGateway gateway;
+  bool busy = false;
+  String? _pendingReceipt;
+  bool get hasPendingReward => _pendingReceipt != null;
+
+  Future<String> earn() async {
+    if (busy) return 'Reklam işlemi sürüyor.';
+    busy = true;
+    notifyListeners();
+    try {
+      if (_pendingReceipt != null) {
+        await credits.grantReward(_pendingReceipt!);
+        _pendingReceipt = null;
+        return '1 analiz hakkı eklendi.';
+      }
+      await credits.refresh();
+      if (!credits.ready) {
+        return 'Hak kaydı okunamadı. Reklam başlatılmadı; lütfen tekrar deneyin.';
+      }
+      final receipt =
+          '${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 32)}';
+      var rewarded = false;
+      await gateway.show(() async {
+        _pendingReceipt = receipt;
+        await credits.grantReward(receipt);
+        _pendingReceipt = null;
+        rewarded = true;
+      });
+      return rewarded
+          ? '1 analiz hakkı eklendi.'
+          : 'Reklam tamamlanmadı. Mevcut haklarınız değişmedi.';
+    } catch (_) {
+      return hasPendingReward
+          ? 'Ödül kaydedilemedi. Tekrar reklam izlemeden “Ödülü kaydet”e dokunun.'
+          : 'Reklam şu anda açılamıyor. Daha sonra tekrar deneyebilirsiniz.';
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
   }
 }

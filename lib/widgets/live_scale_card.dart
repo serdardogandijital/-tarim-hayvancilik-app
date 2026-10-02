@@ -58,22 +58,22 @@ class LiveScaleCard extends StatelessWidget {
                     SizedBox(height: 2),
                     Text(
                       'AI ile Ağırlık Tahmini',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
                     ),
                   ],
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text(
-                  'ÜCRETSİZ',
+                  'TAHMİN',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 10,
@@ -84,9 +84,9 @@ class LiveScaleCard extends StatelessWidget {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // İki buton yan yana
           Row(
             children: [
@@ -129,9 +129,9 @@ class LiveScaleCard extends StatelessWidget {
                   ),
                 ),
               ),
-              
+
               const SizedBox(width: 12),
-              
+
               // Galeriden seç butonu
               Expanded(
                 child: GestureDetector(
@@ -177,9 +177,9 @@ class LiveScaleCard extends StatelessWidget {
               ),
             ],
           ),
-          
+
           const SizedBox(height: 12),
-          
+
           // Alt bilgi
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -190,18 +190,11 @@ class LiveScaleCard extends StatelessWidget {
             child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.auto_awesome,
-                  color: Colors.white70,
-                  size: 14,
-                ),
+                Icon(Icons.auto_awesome, color: Colors.white70, size: 14),
                 SizedBox(width: 6),
                 Text(
                   'ChatGPT Vision AI ile analiz',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 11,
-                  ),
+                  style: TextStyle(color: Colors.white70, fontSize: 11),
                 ),
               ],
             ),
