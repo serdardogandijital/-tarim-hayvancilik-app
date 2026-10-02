@@ -66,7 +66,12 @@ class _AnalysisCreditsCardState extends State<AnalysisCreditsCard> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  credits.error != null ? 'Tekrar dene' : 'Hak ekle',
+                  credits.error != null
+                      ? 'Tekrar dene'
+                      : RewardCredits.instance.canOffer ||
+                            AnalysisPurchases.instance.store.configured
+                      ? 'Hak ekle'
+                      : 'Hakları gör',
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -116,7 +121,7 @@ class _RewardDialogState extends State<_RewardDialog> {
   @override
   void initState() {
     super.initState();
-    widget.purchases.load();
+    if (widget.purchases.store.configured) widget.purchases.load();
   }
 
   Widget _pack(AnalysisPack pack, bool blocked) {
@@ -200,8 +205,10 @@ class _RewardDialogState extends State<_RewardDialog> {
                   style: TextStyle(fontSize: 12),
                 ),
                 const SizedBox(height: 16),
-                ...AnalysisPack.all.map((pack) => _pack(pack, rewards.busy)),
-                if (widget.purchases.busy) const LinearProgressIndicator(),
+                if (widget.purchases.store.configured) ...[
+                  ...AnalysisPack.all.map((pack) => _pack(pack, rewards.busy)),
+                  if (widget.purchases.busy) const LinearProgressIndicator(),
+                ],
                 if (message != null || widget.purchases.message != null)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
@@ -229,10 +236,11 @@ class _RewardDialogState extends State<_RewardDialog> {
                   style: TextStyle(fontSize: 12),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'İstersen bir ödüllü reklamı tamamlayarak +1 hak kazanabilirsin. Erken kapatırsan hak eklenmez.',
-                  style: TextStyle(fontSize: 12),
-                ),
+                if (rewards.canOffer)
+                  const Text(
+                    'İstersen bir ödüllü reklamı tamamlayarak +1 hak kazanabilirsin. Erken kapatırsan hak eklenmez.',
+                    style: TextStyle(fontSize: 12),
+                  ),
               ],
             ),
           ),
@@ -243,21 +251,22 @@ class _RewardDialogState extends State<_RewardDialog> {
                   : () => Navigator.pop(context),
               child: const Text('Şimdi değil'),
             ),
-            FilledButton(
-              onPressed: rewards.busy || widget.purchases.busy
-                  ? null
-                  : () async {
-                      final result = await rewards.earn();
-                      if (mounted) setState(() => message = result);
-                    },
-              child: Text(
-                rewards.busy
-                    ? 'Lütfen bekleyin…'
-                    : rewards.hasPendingReward
-                    ? 'Ödülü kaydet'
-                    : 'Reklam izle · +1 hak',
+            if (rewards.canOffer)
+              FilledButton(
+                onPressed: rewards.busy || widget.purchases.busy
+                    ? null
+                    : () async {
+                        final result = await rewards.earn();
+                        if (mounted) setState(() => message = result);
+                      },
+                child: Text(
+                  rewards.busy
+                      ? 'Lütfen bekleyin…'
+                      : rewards.hasPendingReward
+                      ? 'Ödülü kaydet'
+                      : 'Reklam izle · +1 hak',
+                ),
               ),
-            ),
           ],
         ),
       );

@@ -42,7 +42,8 @@ class AdsConsent extends ChangeNotifier {
   }
 
   Future<bool> _initialize() async {
-    if (!AdUnits.mobile || (AdUnits.banner.isEmpty && AdUnits.rewarded.isEmpty)) {
+    if (!AdUnits.mobile ||
+        (AdUnits.banner.isEmpty && AdUnits.rewarded.isEmpty)) {
       return false;
     }
     try {
@@ -166,6 +167,10 @@ class RewardCredits extends ChangeNotifier {
   bool busy = false;
   String? _pendingReceipt;
   bool get hasPendingReward => _pendingReceipt != null;
+  bool get canOffer =>
+      hasPendingReward ||
+      gateway is! GoogleRewardedGateway ||
+      AdUnits.rewarded.isNotEmpty;
 
   Future<String> earn() async {
     if (busy) return 'Reklam işlemi sürüyor.';

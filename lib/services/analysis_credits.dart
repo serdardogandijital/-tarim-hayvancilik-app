@@ -6,7 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class NoAnalysisCredits implements Exception {
   @override
   String toString() =>
-      'Analiz hakkınız bitti. Günlük bonusu bekleyebilir veya reklam izleyerek 1 hak kazanabilirsiniz.';
+      'Analiz hakkınız bitti. Sonraki gün giriş yaptığınızda +1 bonus hak kazanırsınız.';
 }
 
 /// Guest-device wallet. This is NOT a server-authoritative account or clock.
