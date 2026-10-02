@@ -1,3 +1,5 @@
+import 'farm_records_screen.dart';
+import '../services/safe_list_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
@@ -19,11 +21,13 @@ class FieldDetailScreen extends StatefulWidget {
 
 class _FieldDetailScreenState extends State<FieldDetailScreen> {
   late List<Task> _tasks;
+  late List<Task> _lastSavedTasks;
 
   @override
   void initState() {
     super.initState();
     _tasks = List.from(widget.field.tasks);
+    _lastSavedTasks = List.from(_tasks);
   }
 
   Future<void> _toggleTask(int index) async {
@@ -43,14 +47,16 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
 
     if (result != null) {
       setState(() {
-        _tasks.add(Task(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          title: result['title'],
-          description: result['description'],
-          dueDate: result['dueDate'],
-          isCompleted: false,
-          category: result['category'],
-        ));
+        _tasks.add(
+          Task(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            title: result['title'],
+            description: result['description'],
+            dueDate: result['dueDate'],
+            isCompleted: false,
+            category: result['category'],
+          ),
+        );
       });
       await _saveTasksToStorage();
     }
@@ -111,17 +117,27 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
 
   Future<void> _saveTasksToStorage() async {
     final updatedField = widget.field.copyWith(tasks: _tasks);
-    await FieldStorageService.updateField(updatedField);
+    try {
+      await FieldStorageService.updateField(updatedField);
+      _lastSavedTasks = List.from(updatedField.tasks);
+    } on StorageFailure catch (error) {
+      if (!mounted) return;
+      setState(() => _tasks = List.from(_lastSavedTasks));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
   }
 
   Future<void> _editField() async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => AddEditFieldScreen(field: widget.field),
+        builder: (context) =>
+            AddEditFieldScreen(field: widget.field.copyWith(tasks: _tasks)),
       ),
     );
-    
+
     if (result != null && result is Field) {
       Navigator.pop(context, {'action': 'edit', 'field': result});
     }
@@ -183,21 +199,39 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
             ),
           ],
         ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildInfoCard(),
-            const SizedBox(height: 16),
-            _buildProgressCard(completedCount, progress),
-            const SizedBox(height: 16),
-            _buildLocationCard(),
-            const SizedBox(height: 16),
-            _buildTasksCard(),
-          ],
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildInfoCard(),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.account_balance_wallet_outlined),
+                  title: const Text('Bu tarlanın gelir–gideri'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => FarmRecordsScreen(
+                        initialTab: 1,
+                        ownerType: 'field',
+                        ownerId: widget.field.id,
+                        ownerName: widget.field.name,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildProgressCard(completedCount, progress),
+              const SizedBox(height: 16),
+              _buildLocationCard(),
+              const SizedBox(height: 16),
+              _buildTasksCard(),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -253,7 +287,10 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(20),
@@ -282,7 +319,8 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
               ),
             ],
           ),
-          if (widget.field.plantingDate != null || widget.field.harvestDate != null) ...[
+          if (widget.field.plantingDate != null ||
+              widget.field.harvestDate != null) ...[
             const SizedBox(height: 16),
             const Divider(color: Colors.white24),
             const SizedBox(height: 12),
@@ -290,14 +328,20 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
               _buildDateRow(
                 Icons.calendar_today,
                 'Ekim Tarihi',
-                DateFormat('dd MMMM yyyy', 'tr_TR').format(widget.field.plantingDate!),
+                DateFormat(
+                  'dd MMMM yyyy',
+                  'tr_TR',
+                ).format(widget.field.plantingDate!),
               ),
             if (widget.field.harvestDate != null) ...[
               const SizedBox(height: 8),
               _buildDateRow(
                 Icons.agriculture,
                 'Hasat Tarihi',
-                DateFormat('dd MMMM yyyy', 'tr_TR').format(widget.field.harvestDate!),
+                DateFormat(
+                  'dd MMMM yyyy',
+                  'tr_TR',
+                ).format(widget.field.harvestDate!),
               ),
             ],
           ],
@@ -313,10 +357,7 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
         const SizedBox(width: 8),
         Text(
           '$label: ',
-          style: TextStyle(
-            fontSize: 13,
-            color: Colors.white.withOpacity(0.8),
-          ),
+          style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.8)),
         ),
         Text(
           date,
@@ -350,10 +391,7 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
           children: [
             const Text(
               'Tarla Konumu',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             Row(
@@ -407,10 +445,7 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
                 children: [
                   const Text(
                     'Tarla Konumu',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -510,10 +545,7 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
             children: [
               const Text(
                 'İlerleme',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               Text(
                 '$completedCount/${_tasks.length}',
@@ -540,10 +572,7 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
           const SizedBox(height: 8),
           Text(
             '${(progress * 100).toInt()}% tamamlandı',
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey[600],
-            ),
+            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
           ),
         ],
       ),
@@ -577,10 +606,7 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
             children: [
               const Text(
                 'Yapılacaklar',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               IconButton(
                 icon: const Icon(Icons.add_circle_outline),
@@ -597,18 +623,11 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
                 padding: const EdgeInsets.all(32),
                 child: Column(
                   children: [
-                    Icon(
-                      Icons.task_alt,
-                      size: 64,
-                      color: Colors.grey[300],
-                    ),
+                    Icon(Icons.task_alt, size: 64, color: Colors.grey[300]),
                     const SizedBox(height: 16),
                     Text(
                       'Henüz görev eklenmemiş',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                     ),
                     const SizedBox(height: 8),
                     TextButton.icon(
@@ -638,7 +657,11 @@ class _FieldDetailScreenState extends State<FieldDetailScreen> {
       children: [
         Row(
           children: [
-            Icon(categoryIcon, size: 18, color: Theme.of(context).colorScheme.primary),
+            Icon(
+              categoryIcon,
+              size: 18,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             const SizedBox(width: 8),
             Text(
               categoryName,
@@ -788,7 +811,9 @@ class _AddTaskDialogState extends State<_AddTaskDialog> {
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.initialTitle);
-    _descriptionController = TextEditingController(text: widget.initialDescription);
+    _descriptionController = TextEditingController(
+      text: widget.initialDescription,
+    );
     _dueDate = widget.initialDueDate;
     _category = widget.initialCategory ?? TaskCategory.other;
   }
@@ -817,15 +842,17 @@ class _AddTaskDialogState extends State<_AddTaskDialog> {
 
   void _save() {
     if (_titleController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Görev adı gerekli')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Görev adı gerekli')));
       return;
     }
 
     Navigator.pop(context, {
       'title': _titleController.text,
-      'description': _descriptionController.text.isEmpty ? null : _descriptionController.text,
+      'description': _descriptionController.text.isEmpty
+          ? null
+          : _descriptionController.text,
       'dueDate': _dueDate,
       'category': _category,
     });
@@ -863,7 +890,9 @@ class _AddTaskDialogState extends State<_AddTaskDialog> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    widget.initialTitle == null ? 'Yeni Görev' : 'Görevi Düzenle',
+                    widget.initialTitle == null
+                        ? 'Yeni Görev'
+                        : 'Görevi Düzenle',
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -914,7 +943,10 @@ class _AddTaskDialogState extends State<_AddTaskDialog> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.calendar_today, color: Theme.of(context).colorScheme.primary),
+                      Icon(
+                        Icons.calendar_today,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -930,12 +962,19 @@ class _AddTaskDialogState extends State<_AddTaskDialog> {
                             const SizedBox(height: 4),
                             Text(
                               _dueDate != null
-                                  ? DateFormat('dd MMMM yyyy', 'tr_TR').format(_dueDate!)
+                                  ? DateFormat(
+                                      'dd MMMM yyyy',
+                                      'tr_TR',
+                                    ).format(_dueDate!)
                                   : 'Tarih seçin',
                               style: TextStyle(
                                 fontSize: 15,
-                                fontWeight: _dueDate != null ? FontWeight.w500 : FontWeight.normal,
-                                color: _dueDate != null ? Colors.black87 : Colors.grey[500],
+                                fontWeight: _dueDate != null
+                                    ? FontWeight.w500
+                                    : FontWeight.normal,
+                                color: _dueDate != null
+                                    ? Colors.black87
+                                    : Colors.grey[500],
                               ),
                             ),
                           ],

@@ -1,8 +1,10 @@
+import '../widgets/farm_summary_card.dart';
+import '../widgets/analysis_credits_card.dart';
+import '../services/agenda_service.dart';
+import '../services/safe_list_store.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../models/animal.dart';
-import '../models/field.dart';
 import '../models/weather_data.dart';
 import '../services/animal_storage_service.dart';
 import '../services/field_storage_service.dart';
@@ -14,7 +16,7 @@ import 'ai_chat_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final Function(int)? onNavigateToTab;
-  
+
   const DashboardScreen({super.key, this.onNavigateToTab});
 
   @override
@@ -27,76 +29,150 @@ class _DashboardScreenState extends State<DashboardScreen> {
   WeatherData? _weather;
   int _fieldCount = 0;
   int _animalCount = 0;
-  int _upcomingCount = 0;
+  List<AgendaItem> _agenda = [];
 
   @override
   void initState() {
     super.initState();
     _loadSummary();
+    SafeListStore.revision.addListener(_loadSummary);
   }
 
+  @override
+  void dispose() {
+    SafeListStore.revision.removeListener(_loadSummary);
+    super.dispose();
+  }
+
+  int _summaryRequest = 0;
   Future<void> _loadSummary() async {
+    final request = ++_summaryRequest;
     final location = await LocationStorageService.loadLocation();
     final fields = await FieldStorageService.loadFields();
     final animals = await AnimalStorageService.loadAnimals();
 
-    WeatherData? weather;
-    try {
-      final cityName = location['city'] as String?;
-      if (cityName != null && cityName.isNotEmpty) {
-        weather = await WeatherService().getWeatherByCity(cityName);
-      }
-    } catch (_) {}
-
-    final upcoming = _calculateUpcoming(fields, animals);
-
-    if (mounted) {
-      setState(() {
-        _city = location['city'];
-        _weather = weather;
-        _fieldCount = fields.length;
-        _animalCount = animals.length;
-        _upcomingCount = upcoming;
-        _isLoading = false;
-      });
-    }
+    if (!mounted || request != _summaryRequest) return;
+    setState(() {
+      _city = location['city'];
+      _fieldCount = fields.length;
+      _animalCount = animals.length;
+      _agenda = AgendaService.build(fields, animals);
+      _isLoading = false;
+    });
+    final cityName = location['city'] as String?;
+    final weather = cityName == null || cityName.isEmpty
+        ? null
+        : await WeatherService().getWeatherByCity(cityName);
+    if (!mounted || request != _summaryRequest) return;
+    setState(() => _weather = weather);
   }
 
-  int _calculateUpcoming(List<Field> fields, List<Animal> animals) {
-    final now = DateTime.now();
-    final horizon = now.add(const Duration(days: 7));
+  Widget _agendaTile(AgendaItem item, {bool inSheet = false}) {
+    final days = item.daysFrom(DateTime.now());
+    final dateLabel = days < 0
+        ? '${-days} gün gecikti'
+        : days == 0
+        ? 'Bugün'
+        : '$days gün sonra';
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+      leading: Icon(
+        item.tab == 0 ? Icons.agriculture : Icons.pets,
+        color: days < 0 ? Colors.deepOrange : Colors.green,
+      ),
+      title: Text(item.title),
+      subtitle: Text('${item.owner} · $dateLabel'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        if (inSheet) Navigator.pop(context);
+        widget.onNavigateToTab?.call(item.tab);
+      },
+    );
+  }
 
-    int count = 0;
+  void _showAgenda() {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text(
+              'Bugün ve yaklaşan işler',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            if (_agenda.isEmpty)
+              const Text(
+                'Önümüzdeki 7 gün için kayıtlı bir iş yok. Tarla görevlerinize veya hayvanlarınıza tarih ekleyerek başlayın.',
+              ),
+            ..._agenda.map((item) => _agendaTile(item, inSheet: true)),
+          ],
+        ),
+      ),
+    );
+  }
 
-    for (final field in fields) {
-      for (final task in field.tasks) {
-        if (!task.isCompleted && task.dueDate != null) {
-          final date = task.dueDate!;
-          if (!date.isBefore(now) && !date.isAfter(horizon)) {
-            count++;
-          }
-        }
-      }
-    }
-
-    for (final animal in animals) {
-      if (animal.nextHeatDate != null) {
-        final date = animal.nextHeatDate!;
-        if (!date.isBefore(now) && !date.isAfter(horizon)) {
-          count++;
-        }
-      }
-      for (final vaccine in animal.vaccines) {
-        if (vaccine.nextDate != null) {
-          final date = vaccine.nextDate!;
-          if (!date.isBefore(now) && !date.isAfter(horizon)) {
-            count++;
-          }
-        }
-      }
-    }
-
-    return count;
+  Widget _buildAgendaCard() {
+    final overdue = _agenda
+        .where((item) => item.daysFrom(DateTime.now()) < 0)
+        .length;
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: _showAgenda,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(11),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3DF),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.event_note_rounded,
+                  color: Color(0xFF986A25),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Yaklaşan işler',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF243C30),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      _agenda.isEmpty
+                          ? 'Önümüzdeki 7 gün için iş yok'
+                          : overdue > 0
+                          ? '$overdue geciken · ${_agenda.length} kayıtlı iş'
+                          : '${_agenda.length} iş seni bekliyor',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF707B72),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: Color(0xFF829085)),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -120,24 +196,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
           IconButton(
             icon: const Icon(Icons.notifications_outlined),
             color: const Color(0xFF8B8B8B),
-            onPressed: () {},
+            onPressed: _showAgenda,
           ),
         ],
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 8),
-              _buildOverviewCard(dateText),
-              const SizedBox(height: 16),
-              const LiveScaleCard(),
-              const SizedBox(height: 16),
-              const PlantDoctorCard(),
-              const SizedBox(height: 80),
-            ],
+        child: RefreshIndicator(
+          onRefresh: _loadSummary,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const LiveScaleCard(),
+                const SizedBox(height: 16),
+                const PlantDoctorCard(),
+                const SizedBox(height: 16),
+                const AnalysisCreditsCard(),
+                const SizedBox(height: 24),
+                const FarmSummaryCard(),
+                const SizedBox(height: 12),
+                _buildAgendaCard(),
+                const SizedBox(height: 16),
+                _buildOverviewCard(dateText),
+                const SizedBox(height: 80),
+              ],
+            ),
           ),
         ),
       ),
@@ -145,19 +230,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => const AIChatScreen(),
-            ),
+            MaterialPageRoute(builder: (context) => const AIChatScreen()),
           );
         },
         backgroundColor: Colors.green[600],
         icon: const Icon(Icons.medical_services, color: Colors.white),
         label: const Text(
-          'Online Veteriner',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
+          'Bakım Asistanı',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
         elevation: 4,
       ),
@@ -200,10 +280,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               Text(
                 dateText,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey[700],
-                ),
+                style: TextStyle(fontSize: 11, color: Colors.grey[700]),
               ),
             ],
           ),
@@ -212,17 +289,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(child: _buildStatChip('Tarlalar', _fieldCount.toString(), Icons.agriculture, onTap: () {
-                // Tarım sayfasına git (index 0)
-                widget.onNavigateToTab?.call(0);
-              })),
+              Expanded(
+                child: _buildStatChip(
+                  'Tarlalar',
+                  _fieldCount.toString(),
+                  Icons.agriculture,
+                  onTap: () {
+                    // Tarım sayfasına git (index 0)
+                    widget.onNavigateToTab?.call(0);
+                  },
+                ),
+              ),
               const SizedBox(width: 6),
-              Expanded(child: _buildStatChip('Hayvanlar', _animalCount.toString(), Icons.pets, onTap: () {
-                // Hayvancılık sayfasına git (index 2)
-                widget.onNavigateToTab?.call(2);
-              })),
+              Expanded(
+                child: _buildStatChip(
+                  'Hayvanlar',
+                  _animalCount.toString(),
+                  Icons.pets,
+                  onTap: () {
+                    // Hayvancılık sayfasına git (index 2)
+                    widget.onNavigateToTab?.call(2);
+                  },
+                ),
+              ),
               const SizedBox(width: 6),
-              Expanded(child: _buildStatChip('Yaklaşan', _upcomingCount.toString(), Icons.notifications_active)),
+              Expanded(
+                child: _buildStatChip(
+                  'İşler',
+                  _agenda.length.toString(),
+                  Icons.notifications_active,
+                  onTap: _showAgenda,
+                ),
+              ),
             ],
           ),
         ],
@@ -250,10 +348,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           Icon(Icons.wb_sunny_outlined, color: Colors.orange[700]),
           const SizedBox(width: 8),
-          Text(
-            'Hava verisi yok',
-            style: TextStyle(color: Colors.grey[700]),
-          ),
+          Text('Hava verisi yok', style: TextStyle(color: Colors.grey[700])),
         ],
       );
     }
@@ -261,31 +356,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final weather = _weather!;
     return Row(
       children: [
-        Icon(_mapWeatherIcon(weather.icon), color: Colors.orange[700], size: 20),
+        Icon(
+          _mapWeatherIcon(weather.icon),
+          color: Colors.orange[700],
+          size: 20,
+        ),
         const SizedBox(width: 6),
         Text(
           '${weather.temperature.toStringAsFixed(0)}°C',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(width: 6),
         Expanded(
           child: Text(
             weather.description,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[800],
-            ),
+            style: TextStyle(fontSize: 12, color: Colors.grey[800]),
           ),
         ),
         Text(
           'Nem %${weather.humidity}',
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.grey[700],
-          ),
+          style: TextStyle(fontSize: 11, color: Colors.grey[700]),
         ),
       ],
     );
@@ -312,7 +402,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Widget _buildStatChip(String title, String value, IconData icon, {VoidCallback? onTap}) {
+  Widget _buildStatChip(
+    String title,
+    String value,
+    IconData icon, {
+    VoidCallback? onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -320,7 +415,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.85),
           borderRadius: BorderRadius.circular(12),
-          border: onTap != null ? Border.all(color: Colors.green.withOpacity(0.3), width: 1) : null,
+          border: onTap != null
+              ? Border.all(color: Colors.green.withOpacity(0.3), width: 1)
+              : null,
         ),
         child: Row(
           children: [
@@ -338,10 +435,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 Text(
                   title,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 10, color: Colors.grey[600]),
                 ),
               ],
             ),

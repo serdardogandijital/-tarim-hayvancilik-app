@@ -8,6 +8,7 @@ class LivestockAnimalsCard extends StatelessWidget {
   final Function(Animal) onAnimalAdded;
   final Function(Animal) onAnimalUpdated;
   final Function(String) onAnimalDeleted;
+  final Future<void> Function() onRecordsChanged;
 
   const LivestockAnimalsCard({
     super.key,
@@ -15,6 +16,7 @@ class LivestockAnimalsCard extends StatelessWidget {
     required this.onAnimalAdded,
     required this.onAnimalUpdated,
     required this.onAnimalDeleted,
+    required this.onRecordsChanged,
   });
 
   @override
@@ -57,10 +59,7 @@ class LivestockAnimalsCard extends StatelessWidget {
                       ),
                       Text(
                         '${animals.length} hayvan kayıtlı',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -71,8 +70,9 @@ class LivestockAnimalsCard extends StatelessWidget {
                   IconButton(
                     icon: const Icon(Icons.search),
                     tooltip: 'Hayvan ara',
-                    onPressed:
-                        animals.isEmpty ? null : () => _showAnimalSearch(context),
+                    onPressed: animals.isEmpty
+                        ? null
+                        : () => _showAnimalSearch(context),
                   ),
                   IconButton(
                     icon: const Icon(Icons.add_circle_outline),
@@ -99,10 +99,7 @@ class LivestockAnimalsCard extends StatelessWidget {
                     const SizedBox(height: 16),
                     Text(
                       'Henüz hayvan kaydı yok',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                     ),
                     const SizedBox(height: 8),
                     TextButton.icon(
@@ -189,28 +186,20 @@ class LivestockAnimalsCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     '${animal.type} • ${animal.breed}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                   ),
                   if (animal.nextHeatDate != null)
                     Text(
-                      animal.daysUntilNextHeat != null && animal.daysUntilNextHeat! > 0
+                      animal.daysUntilNextHeat != null &&
+                              animal.daysUntilNextHeat! > 0
                           ? '${animal.daysUntilNextHeat} gün sonra kızgınlık takibi'
                           : 'Bugün kızgınlık takibi',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.orange[700],
-                      ),
+                      style: TextStyle(fontSize: 11, color: Colors.orange[700]),
                     ),
                 ],
               ),
             ),
-            Icon(
-              Icons.chevron_right,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.chevron_right, color: Colors.grey[400]),
           ],
         ),
       ),
@@ -250,21 +239,16 @@ class LivestockAnimalsCard extends StatelessWidget {
       emoji = '🐝';
     }
 
-    return Text(
-      emoji,
-      style: TextStyle(fontSize: 26, color: color),
-    );
+    return Text(emoji, style: TextStyle(fontSize: 26, color: color));
   }
 
   Future<void> _addAnimal(BuildContext context) async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const AddAnimalScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const AddAnimalScreen()),
     );
     if (result != null && result is Animal) {
-      onAnimalAdded(result);
+      await onAnimalAdded(result);
     }
   }
 
@@ -277,11 +261,12 @@ class LivestockAnimalsCard extends StatelessWidget {
     );
     if (result != null) {
       if (result == 'delete') {
-        onAnimalDeleted(animal.id);
+        await onAnimalDeleted(animal.id);
       } else if (result is Animal) {
-        onAnimalUpdated(result);
+        await onAnimalUpdated(result);
       }
     }
+    await onRecordsChanged();
   }
 
   void _showAllAnimals(BuildContext context) {
@@ -312,10 +297,7 @@ class LivestockAnimalsCard extends StatelessWidget {
               const SizedBox(height: 12),
               const Text(
                 'Tüm Hayvanlar',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
               Expanded(
@@ -355,7 +337,9 @@ class LivestockAnimalsCard extends StatelessWidget {
               setModalState(() {
                 final query = value.toLowerCase();
                 filteredAnimals = animals
-                    .where((animal) => animal.name.toLowerCase().contains(query))
+                    .where(
+                      (animal) => animal.name.toLowerCase().contains(query),
+                    )
                     .toList();
               });
             }
@@ -423,7 +407,8 @@ class LivestockAnimalsCard extends StatelessWidget {
                             )
                           : ListView.separated(
                               itemCount: filteredAnimals.length,
-                              separatorBuilder: (_, __) => const SizedBox(height: 8),
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 8),
                               itemBuilder: (context, index) {
                                 final animal = filteredAnimals[index];
                                 return ListTile(
@@ -434,15 +419,21 @@ class LivestockAnimalsCard extends StatelessWidget {
                                   ),
                                   title: Text(
                                     animal.name,
-                                    style:
-                                        const TextStyle(fontWeight: FontWeight.w600),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
-                                  subtitle: Text('${animal.type} • ${animal.breed}'),
+                                  subtitle: Text(
+                                    '${animal.type} • ${animal.breed}',
+                                  ),
                                   trailing: const Icon(Icons.chevron_right),
                                   onTap: () {
                                     Navigator.pop(sheetContext);
                                     Future.microtask(
-                                      () => _openAnimalDetail(parentContext, animal),
+                                      () => _openAnimalDetail(
+                                        parentContext,
+                                        animal,
+                                      ),
                                     );
                                   },
                                 );

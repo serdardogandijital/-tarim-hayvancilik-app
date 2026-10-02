@@ -1,3 +1,4 @@
+import '../services/safe_list_store.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
@@ -39,32 +40,39 @@ class _TarimScreenState extends State<TarimScreen> {
     for (final field in loadedFields) {
       await NotificationService.instance.scheduleFieldNotifications(field);
     }
+    if (!mounted) return;
     setState(() {
       _fields = loadedFields;
     });
   }
 
   Future<void> _addNewField() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const AddEditFieldScreen(),
-      ),
-    );
-    
-    if (result != null && result is Field) {
-      await FieldStorageService.addField(result);
-      await NotificationService.instance.scheduleFieldNotifications(result);
-      setState(() {
-        _fields.add(result);
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${result.name} eklendi!'),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 2),
-        ),
+    try {
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const AddEditFieldScreen()),
       );
+
+      if (result != null && result is Field) {
+        await FieldStorageService.addField(result);
+        await NotificationService.instance.scheduleFieldNotifications(result);
+        if (!mounted) return;
+        setState(() {
+          _fields.add(result);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${result.name} eklendi!'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } on StorageFailure catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
     }
   }
 
@@ -80,37 +88,57 @@ class _TarimScreenState extends State<TarimScreen> {
   }
 
   Future<void> _updateField(Field updatedField) async {
-    await FieldStorageService.updateField(updatedField);
-    await NotificationService.instance.scheduleFieldNotifications(updatedField);
-    setState(() {
-      final index = _fields.indexWhere((f) => f.id == updatedField.id);
-      if (index != -1) {
-        _fields[index] = updatedField;
-      }
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${updatedField.name} güncellendi!'),
-        backgroundColor: Colors.blue,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    try {
+      await FieldStorageService.updateField(updatedField);
+      await NotificationService.instance.scheduleFieldNotifications(
+        updatedField,
+      );
+      if (!mounted) return;
+      setState(() {
+        final index = _fields.indexWhere((f) => f.id == updatedField.id);
+        if (index != -1) {
+          _fields[index] = updatedField;
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${updatedField.name} güncellendi!'),
+          backgroundColor: Colors.blue,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } on StorageFailure catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
   }
 
   Future<void> _deleteField(Field field) async {
-    await FieldStorageService.deleteField(field.id);
-    await NotificationService.instance
-        .cancelNotificationsForEntity(field.id, scopes: NotificationService.fieldScopes);
-    setState(() {
-      _fields.removeWhere((f) => f.id == field.id);
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${field.name} silindi!'),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    try {
+      await FieldStorageService.deleteField(field.id);
+      await NotificationService.instance.cancelNotificationsForEntity(
+        field.id,
+        scopes: NotificationService.fieldScopes,
+      );
+      if (!mounted) return;
+      setState(() {
+        _fields.removeWhere((f) => f.id == field.id);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${field.name} silindi!'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } on StorageFailure catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
   }
 
   Position? _positionFromLocation(LocationNotifier location) {
@@ -138,7 +166,9 @@ class _TarimScreenState extends State<TarimScreen> {
       if (!serviceEnabled) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Konum servisi kapalı - Manuel seçim yapın.')),
+          const SnackBar(
+            content: Text('Konum servisi kapalı - Manuel seçim yapın.'),
+          ),
         );
         locationNotifier.setLoading(false);
         return;
@@ -150,7 +180,9 @@ class _TarimScreenState extends State<TarimScreen> {
         if (permission == LocationPermission.denied) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Konum izni reddedildi - Manuel seçim yapın.')),
+            const SnackBar(
+              content: Text('Konum izni reddedildi - Manuel seçim yapın.'),
+            ),
           );
           locationNotifier.setLoading(false);
           return;
@@ -160,7 +192,9 @@ class _TarimScreenState extends State<TarimScreen> {
       if (permission == LocationPermission.deniedForever) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Konum izni kalıcı reddedildi - Manuel seçim yapın.')),
+          const SnackBar(
+            content: Text('Konum izni kalıcı reddedildi - Manuel seçim yapın.'),
+          ),
         );
         locationNotifier.setLoading(false);
         return;
@@ -179,11 +213,15 @@ class _TarimScreenState extends State<TarimScreen> {
         Placemark place = placemarks[0];
         String cityName = place.administrativeArea ?? place.locality ?? '';
         String country = place.country ?? '';
-        
-        if (country != 'Turkey' && country != 'Türkiye' && cityName.length <= 3) {
+
+        if (country != 'Turkey' &&
+            country != 'Türkiye' &&
+            cityName.length <= 3) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Simülatör konumu - Manuel seçim yapın.')),
+            const SnackBar(
+              content: Text('Simülatör konumu - Manuel seçim yapın.'),
+            ),
           );
         } else {
           await locationNotifier.updateLocation(
@@ -199,7 +237,9 @@ class _TarimScreenState extends State<TarimScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Konum alınamadı - Manuel seçim yapın.')),
+          const SnackBar(
+            content: Text('Konum alınamadı - Manuel seçim yapın.'),
+          ),
         );
       }
     }
@@ -216,11 +256,11 @@ class _TarimScreenState extends State<TarimScreen> {
 
     if (selectedCity != null && mounted) {
       await context.read<LocationNotifier>().updateLocation(
-            city: selectedCity.name,
-            address: selectedCity.name,
-            isManual: true,
-            notifyLoading: false,
-          );
+        city: selectedCity.name,
+        address: selectedCity.name,
+        isManual: true,
+        notifyLoading: false,
+      );
     }
   }
 
@@ -243,13 +283,6 @@ class _TarimScreenState extends State<TarimScreen> {
         ),
         backgroundColor: const Color(0xFFF5F1E8),
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            color: const Color(0xFF8B8B8B),
-            onPressed: () {},
-          ),
-        ],
       ),
       body: RefreshIndicator(
         onRefresh: _getCurrentLocation,
@@ -277,10 +310,7 @@ class _TarimScreenState extends State<TarimScreen> {
                 onViewAllFields: _openAllFieldsMap,
               ),
               const SizedBox(height: 16),
-              WeatherCard(
-                position: position,
-                selectedCity: selectedCity,
-              ),
+              WeatherCard(position: position, selectedCity: selectedCity),
               const SizedBox(height: 16),
               PlantingCalendarCard(
                 position: position,

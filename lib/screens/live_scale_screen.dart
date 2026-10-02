@@ -1,6 +1,6 @@
+import '../widgets/analysis_credits_card.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:camera/camera.dart';
@@ -21,7 +21,7 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
   final LivestockMLService _mlService = LivestockMLService();
   final TextEditingController _chestController = TextEditingController();
   final TextEditingController _lengthController = TextEditingController();
-  
+
   bool _isInitialized = false;
   bool _isAnalyzing = false;
   bool _isCapturing = false;
@@ -29,7 +29,6 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
   int _currentStep = 0;
   double? _estimatedWeight;
   double? _formulaWeight;
-  double? _confidence;
   String? _bodyCondition;
   String? _animalType;
   String? _breed;
@@ -55,11 +54,11 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
 
   Future<void> _initializeCamera() async {
     final status = await Permission.camera.request();
-    if (status.isDenied) {
+    if (!status.isGranted) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Kamera izni gerekli')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Kamera izni gerekli')));
         Navigator.pop(context);
       }
       return;
@@ -90,7 +89,7 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
 
       await _controller!.initialize();
       await _mlService.initialize();
-      
+
       if (mounted) {
         setState(() {
           _isInitialized = true;
@@ -112,7 +111,9 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
   }
 
   Future<void> _capturePhoto() async {
-    if (_controller == null || !_controller!.value.isInitialized || _isCapturing) {
+    if (_controller == null ||
+        !_controller!.value.isInitialized ||
+        _isCapturing) {
       return;
     }
 
@@ -122,15 +123,16 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
 
     try {
       final image = await _controller!.takePicture();
+      if (!mounted) return;
       _capturedImages.add(image);
-      
+
       if (_currentStep < _steps.length - 1) {
         // Sonraki adıma geç
         setState(() {
           _currentStep++;
           _isCapturing = false;
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('✅ Fotoğraf ${_capturedImages.length}/3 çekildi'),
@@ -144,7 +146,7 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
           _isCapturing = false;
           _showMeasurementInput = true;
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('✅ 3 fotoğraf çekildi! Şimdi ölçüleri girin'),
@@ -154,6 +156,7 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isCapturing = false;
       });
@@ -167,9 +170,10 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
   }
 
   Future<void> _performFinalAnalysis() async {
+    if (_isAnalyzing) return;
     // Önce formül ile hesapla
     final formulaW = _calculateFormulaWeight();
-    
+
     setState(() {
       _isAnalyzing = true;
       _showMeasurementInput = false;
@@ -178,26 +182,39 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
 
     try {
       Map<String, dynamic>? aiResult;
-      
+
       // Fotoğraf varsa AI analizi yap - HER ZAMAN yap
       if (_capturedImages.isNotEmpty) {
-        final bestImage = _capturedImages.length > 1 
-            ? _capturedImages[1]  // Yandan çekilmiş
-            : _capturedImages[0];
-        
         try {
-          aiResult = await _mlService.analyzeImage(File(bestImage.path));
-          
+          aiResult = await _mlService.analyzeImages(
+            _capturedImages.map((image) => File(image.path)).toList(),
+            chestCircumferenceCm: double.tryParse(
+              _chestController.text.replaceAll(',', '.'),
+            ),
+            bodyLengthCm: double.tryParse(
+              _lengthController.text.replaceAll(',', '.'),
+            ),
+          );
+
+          if (!mounted) return;
           // Hayvan bulunamadı hatası kontrolü
-          if (aiResult.containsKey('error') && aiResult['error'] == 'no_livestock') {
+          if (aiResult.containsKey('error') &&
+              (aiResult['error'] != 'analysis_failed' ||
+                  _formulaWeight == null)) {
             setState(() {
               _isAnalyzing = false;
               _showMeasurementInput = true;
             });
+            if (aiResult['error'] == 'no_credits') {
+              await showCreditsDialog(context);
+              return;
+            }
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('❌ ${aiResult['message'] ?? 'Fotoğrafta sığır bulunamadı'}'),
+                  content: Text(
+                    '❌ ${aiResult['message'] ?? 'Fotoğrafta sığır bulunamadı'}',
+                  ),
                   backgroundColor: Colors.red,
                   duration: const Duration(seconds: 3),
                 ),
@@ -210,23 +227,16 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
         }
       }
 
-      // Ağırlık hesaplama: Formül + AI birleştir
+      if (!mounted) return;
+      // Girilmiş gerçek ölçüleri, görsel tahminle karıştırma.
       double finalWeight;
-      double finalConfidence;
-      
-      if (_formulaWeight != null && aiResult != null && aiResult.containsKey('weight')) {
-        // İkisi de varsa: Formül %70, AI %30 ağırlıklı ortalama
-        final aiWeight = (aiResult['weight'] as num).toDouble();
-        finalWeight = (_formulaWeight! * 0.7) + (aiWeight * 0.3);
-        finalConfidence = 92.0;
-      } else if (_formulaWeight != null) {
+
+      if (_formulaWeight != null) {
         // Sadece formül
         finalWeight = _formulaWeight!;
-        finalConfidence = 90.0;
       } else if (aiResult != null && aiResult.containsKey('weight')) {
         // Sadece AI
         finalWeight = (aiResult['weight'] as num).toDouble();
-        finalConfidence = (aiResult['confidence'] as double) * 100;
       } else {
         // Hiçbiri yoksa hata göster
         setState(() {
@@ -236,19 +246,20 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('❌ Analiz yapılamadı. Lütfen ölçüleri girin veya tekrar deneyin.'),
+              content: Text(
+                '❌ Analiz yapılamadı. Lütfen ölçüleri girin veya tekrar deneyin.',
+              ),
               backgroundColor: Colors.red,
             ),
           );
         }
         return;
       }
-      
+
       setState(() {
         _isAnalyzing = false;
         _estimatedWeight = finalWeight;
-        _confidence = finalConfidence;
-        _bodyCondition = aiResult?['conditionScore'] ?? 'İdeal';
+        _bodyCondition = aiResult?['conditionScore'] ?? 'Değerlendirilemedi';
         _animalType = aiResult?['animalType'] ?? 'Sığır';
         _breed = aiResult?['breed'] ?? 'Bilinmiyor';
       });
@@ -258,13 +269,13 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
         _showResultDialog();
       }
     } catch (e) {
+      if (!mounted) return;
       // Hata olsa bile formül sonucu varsa göster
       if (_formulaWeight != null) {
         setState(() {
           _isAnalyzing = false;
           _estimatedWeight = _formulaWeight;
-          _confidence = 90.0;
-          _bodyCondition = 'İdeal';
+          _bodyCondition = 'Değerlendirilemedi';
           _animalType = 'Sığır';
           _breed = 'Bilinmiyor';
         });
@@ -273,16 +284,22 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
         }
         return;
       }
-      
+
       setState(() {
         _isAnalyzing = false;
-        _estimatedWeight = 400.0;
-        _confidence = 50.0;
-        _bodyCondition = 'İdeal';
+        _estimatedWeight = null;
+        _showMeasurementInput = true;
+        _bodyCondition = 'Değerlendirilemedi';
       });
-      
+
       if (mounted) {
-        _showResultDialog();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Analiz tamamlanamadı. Ölçüleri kontrol edip tekrar deneyin.',
+            ),
+          ),
+        );
       }
     }
   }
@@ -296,7 +313,7 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
           children: [
             Icon(Icons.check_circle, color: Colors.green[600]),
             const SizedBox(width: 8),
-            const Text('Analiz Tamamlandı'),
+            const Expanded(child: Text('Analiz Tamamlandı')),
           ],
         ),
         content: Column(
@@ -314,14 +331,11 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
                 children: [
                   const Text(
                     'Tahmini Ağırlık',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${_estimatedWeight?.toStringAsFixed(1) ?? "0"} kg',
+                    '${_estimatedWeight?.toStringAsFixed(0) ?? "0"} kg',
                     style: const TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
@@ -331,7 +345,10 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
                   const SizedBox(height: 8),
                   if (_bodyCondition != null) ...[
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
@@ -348,11 +365,8 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
                     const SizedBox(height: 8),
                   ],
                   Text(
-                    'Güven: %${_confidence?.toStringAsFixed(0) ?? "0"}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[700],
-                    ),
+                    'Yaklaşık tahmin • Tartı ile doğrulayın',
+                    style: TextStyle(fontSize: 13, color: Colors.grey[700]),
                   ),
                 ],
               ),
@@ -386,7 +400,11 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
                     if (_breed != null)
                       Column(
                         children: [
-                          Icon(Icons.category, size: 20, color: Colors.blue[700]),
+                          Icon(
+                            Icons.category,
+                            size: 20,
+                            color: Colors.blue[700],
+                          ),
                           const SizedBox(height: 4),
                           Text(
                             _breed!,
@@ -403,12 +421,11 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
               ),
             const SizedBox(height: 12),
             Text(
-              'ChatGPT Vision AI ile analiz edildi.',
+              _formulaWeight != null
+                  ? 'Girdiğiniz ölçülerden hesaplanan yaklaşık ağırlık.'
+                  : 'Üç açıdan görsel tahmin; ölçek bilgisi yok. Tartı ile doğrulayın.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
           ],
         ),
@@ -429,8 +446,8 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
     // En iyi fotoğrafı seç (yandan çekilmiş)
     String? bestImagePath;
     if (_capturedImages.isNotEmpty) {
-      bestImagePath = _capturedImages.length > 1 
-          ? _capturedImages[1].path 
+      bestImagePath = _capturedImages.length > 1
+          ? _capturedImages[1].path
           : _capturedImages[0].path;
     }
 
@@ -442,8 +459,7 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
       builder: (context) => _ShareScreen(
         weight: _estimatedWeight ?? 0,
         breed: _breed ?? 'Bilinmiyor',
-        condition: _bodyCondition ?? 'İdeal',
-        confidence: _confidence ?? 0,
+        condition: _bodyCondition ?? 'Değerlendirilemedi',
         imagePath: bestImagePath,
         onClose: () {
           Navigator.pop(context);
@@ -459,7 +475,6 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
       _currentStep = 0;
       _estimatedWeight = null;
       _formulaWeight = null;
-      _confidence = null;
       _bodyCondition = null;
       _animalType = null;
       _breed = null;
@@ -480,13 +495,20 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
 
   // Schaeffer formülü ile ağırlık hesaplama
   double? _calculateFormulaWeight() {
-    final chest = double.tryParse(_chestController.text);
-    final length = double.tryParse(_lengthController.text);
-    
-    if (chest == null || length == null || chest <= 0 || length <= 0) {
+    final chest = double.tryParse(_chestController.text.replaceAll(',', '.'));
+    final length = double.tryParse(_lengthController.text.replaceAll(',', '.'));
+
+    if (chest == null ||
+        length == null ||
+        !chest.isFinite ||
+        !length.isFinite ||
+        chest <= 0 ||
+        length <= 0 ||
+        chest > 500 ||
+        length > 500) {
       return null;
     }
-    
+
     // Schaeffer formülü: (Göğüs çevresi² × Vücut uzunluğu) / 10800
     final weight = (chest * chest * length) / 10800;
     return weight;
@@ -511,7 +533,11 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.check_circle, color: Colors.green, size: 24),
+                    const Icon(
+                      Icons.check_circle,
+                      color: Colors.green,
+                      size: 24,
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -526,8 +552,11 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
                             ),
                           ),
                           Text(
-                            'Şimdi ölçüleri girerek doğru sonuç alın',
-                            style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                            'Üç açı birlikte analiz edilir. Mezura ölçüsü ekleyebilirsiniz.',
+                            style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),
@@ -535,9 +564,9 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 24),
-              
+
               // Çekilen fotoğraflar önizleme
               SizedBox(
                 height: 80,
@@ -562,9 +591,9 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
                   }).toList(),
                 ),
               ),
-              
+
               const SizedBox(height: 24),
-              
+
               // Ölçüm girişi
               Container(
                 padding: const EdgeInsets.all(16),
@@ -577,7 +606,11 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.straighten, color: Colors.green[400], size: 20),
+                        Icon(
+                          Icons.straighten,
+                          color: Colors.green[400],
+                          size: 20,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           'Ölçüm Girin',
@@ -595,7 +628,7 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
                       style: TextStyle(color: Colors.grey[500], fontSize: 12),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Göğüs çevresi
                     TextField(
                       controller: _chestController,
@@ -614,11 +647,14 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
                         ),
-                        prefixIcon: Icon(Icons.radio_button_unchecked, color: Colors.grey[500]),
+                        prefixIcon: Icon(
+                          Icons.radio_button_unchecked,
+                          color: Colors.grey[500],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    
+
                     // Vücut uzunluğu
                     TextField(
                       controller: _lengthController,
@@ -637,12 +673,15 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
                         ),
-                        prefixIcon: Icon(Icons.straighten, color: Colors.grey[500]),
+                        prefixIcon: Icon(
+                          Icons.straighten,
+                          color: Colors.grey[500],
+                        ),
                       ),
                     ),
-                    
+
                     const SizedBox(height: 16),
-                    
+
                     // Ölçüm açıklaması
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -655,7 +694,11 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
                         children: [
                           Row(
                             children: [
-                              Icon(Icons.info_outline, color: Colors.blue[300], size: 16),
+                              Icon(
+                                Icons.info_outline,
+                                color: Colors.blue[300],
+                                size: 16,
+                              ),
                               const SizedBox(width: 8),
                               Text(
                                 'Nasıl Ölçülür?',
@@ -670,7 +713,10 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
                           const SizedBox(height: 8),
                           Text(
                             '• Göğüs Çevresi: Ön bacakların hemen arkasından çevre ölçümü\n• Vücut Uzunluğu: Omuz noktasından kuyruk kökünün başlangıcına',
-                            style: TextStyle(color: Colors.grey[400], fontSize: 11),
+                            style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 11,
+                            ),
                           ),
                         ],
                       ),
@@ -678,9 +724,9 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 24),
-              
+
               // Hesapla butonu
               SizedBox(
                 width: double.infinity,
@@ -701,15 +747,18 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
                       SizedBox(width: 8),
                       Text(
                         'Ağırlık Hesapla',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
-              
+
               const SizedBox(height: 12),
-              
+
               // Ölçüm olmadan devam et
               SizedBox(
                 width: double.infinity,
@@ -741,6 +790,11 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            tooltip: 'Analiz hakları',
+            onPressed: _isAnalyzing ? null : () => showCreditsDialog(context),
+            icon: const Icon(Icons.add_circle_outline),
+          ),
           if (_capturedImages.isNotEmpty || _showMeasurementInput)
             IconButton(
               icon: const Icon(Icons.refresh),
@@ -764,201 +818,213 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
               ),
             )
           : _showMeasurementInput
-              ? _buildMeasurementInputScreen()
-              : _isAnalyzing
-                  ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const CircularProgressIndicator(color: Colors.greenAccent),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'AI Analiz Yapılıyor...',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'ChatGPT Vision ile ağırlık tahmin ediliyor',
-                        style: TextStyle(
-                          color: Colors.grey[400],
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
+          ? _buildMeasurementInputScreen()
+          : _isAnalyzing
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(color: Colors.greenAccent),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'AI Analiz Yapılıyor...',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                )
-              : Stack(
-                  children: [
-                    // Kamera önizleme
-                    if (_controller != null && _controller!.value.isInitialized)
-                      Positioned.fill(
-                        child: CameraPreview(_controller!),
-                      )
-                    else
-                      Container(
-                        color: Colors.grey[900],
-                        child: const Center(
-                          child: Text(
-                            'Kamera bulunamadı',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                        ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'ChatGPT Vision ile ağırlık tahmin ediliyor',
+                    style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                  ),
+                ],
+              ),
+            )
+          : Stack(
+              children: [
+                // Kamera önizleme
+                if (_controller != null && _controller!.value.isInitialized)
+                  Positioned.fill(child: CameraPreview(_controller!))
+                else
+                  Container(
+                    color: Colors.grey[900],
+                    child: const Center(
+                      child: Text(
+                        'Kamera bulunamadı',
+                        style: TextStyle(color: Colors.white70),
                       ),
-                    
-                    // Üst bilgi paneli
-                    Positioned(
-                      top: 20,
-                      left: 20,
-                      right: 20,
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.7),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Column(
+                    ),
+                  ),
+
+                // Üst bilgi paneli
+                Positioned(
+                  top: 20,
+                  left: 20,
+                  right: 20,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  _stepIcons[_currentStep],
-                                  color: Colors.greenAccent,
-                                  size: 28,
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  _steps[_currentStep],
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
+                            Icon(
+                              _stepIcons[_currentStep],
+                              color: Colors.greenAccent,
+                              size: 28,
                             ),
-                            const SizedBox(height: 12),
-                            // İlerleme göstergesi
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: List.generate(3, (index) {
-                                final isCaptured = index < _capturedImages.length;
-                                final isCurrent = index == _currentStep;
-                                return Container(
-                                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: isCaptured 
-                                        ? Colors.green 
-                                        : (isCurrent ? Colors.greenAccent.withOpacity(0.3) : Colors.grey[800]),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: isCurrent 
-                                        ? Border.all(color: Colors.greenAccent, width: 2)
-                                        : null,
-                                  ),
-                                  child: Center(
-                                    child: isCaptured
-                                        ? const Icon(Icons.check, color: Colors.white, size: 20)
-                                        : Text(
-                                            '${index + 1}',
-                                            style: TextStyle(
-                                              color: isCurrent ? Colors.greenAccent : Colors.grey,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                  ),
-                                );
-                              }),
-                            ),
-                            const SizedBox(height: 8),
+                            const SizedBox(width: 12),
                             Text(
-                              'Fotoğraf ${_capturedImages.length}/3',
+                              _steps[_currentStep],
                               style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ),
-                    
-                    // Alt çekim butonu
-                    Positioned(
-                      bottom: 40,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: GestureDetector(
-                          onTap: _isCapturing ? null : _capturePhoto,
-                          child: Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: _isCapturing ? Colors.grey : Colors.white,
-                              border: Border.all(
-                                color: Colors.greenAccent,
-                                width: 4,
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Aynı hayvanı düz zeminde, gövdesi ve ayakları tam görünecek şekilde çekin. Yaklaşmadan güvenli mesafeyi koruyun.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                        const SizedBox(height: 12),
+                        // İlerleme göstergesi
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(3, (index) {
+                            final isCaptured = index < _capturedImages.length;
+                            final isCurrent = index == _currentStep;
+                            return Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: isCaptured
+                                    ? Colors.green
+                                    : (isCurrent
+                                          ? Colors.greenAccent.withOpacity(0.3)
+                                          : Colors.grey[800]),
+                                borderRadius: BorderRadius.circular(8),
+                                border: isCurrent
+                                    ? Border.all(
+                                        color: Colors.greenAccent,
+                                        width: 2,
+                                      )
+                                    : null,
                               ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.greenAccent.withOpacity(0.5),
-                                  blurRadius: 20,
-                                  spreadRadius: 2,
-                                ),
-                              ],
-                            ),
-                            child: Center(
-                              child: _isCapturing
-                                  ? const SizedBox(
-                                      width: 30,
-                                      height: 30,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.green,
-                                        strokeWidth: 3,
+                              child: Center(
+                                child: isCaptured
+                                    ? const Icon(
+                                        Icons.check,
+                                        color: Colors.white,
+                                        size: 20,
+                                      )
+                                    : Text(
+                                        '${index + 1}',
+                                        style: TextStyle(
+                                          color: isCurrent
+                                              ? Colors.greenAccent
+                                              : Colors.grey,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
-                                    )
-                                  : Icon(
-                                      Icons.camera_alt,
-                                      size: 36,
-                                      color: Colors.green[700],
-                                    ),
-                            ),
+                              ),
+                            );
+                          }),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Fotoğraf ${_capturedImages.length}/3',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                    
-                    // Çekim talimatı
-                    Positioned(
-                      bottom: 140,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.6),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Text(
-                            'Butona basarak fotoğraf çekin',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
+
+                // Alt çekim butonu
+                Positioned(
+                  bottom: 40,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: GestureDetector(
+                      onTap: _isCapturing ? null : _capturePhoto,
+                      child: Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _isCapturing ? Colors.grey : Colors.white,
+                          border: Border.all(
+                            color: Colors.greenAccent,
+                            width: 4,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.greenAccent.withOpacity(0.5),
+                              blurRadius: 20,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: _isCapturing
+                              ? const SizedBox(
+                                  width: 30,
+                                  height: 30,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.green,
+                                    strokeWidth: 3,
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.camera_alt,
+                                  size: 36,
+                                  color: Colors.green[700],
+                                ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Çekim talimatı
+                Positioned(
+                  bottom: 140,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        'Butona basarak fotoğraf çekin',
+                        style: TextStyle(color: Colors.white70, fontSize: 14),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }
@@ -968,7 +1034,6 @@ class _ShareScreen extends StatefulWidget {
   final double weight;
   final String breed;
   final String condition;
-  final double confidence;
   final String? imagePath;
   final VoidCallback onClose;
 
@@ -976,7 +1041,6 @@ class _ShareScreen extends StatefulWidget {
     required this.weight,
     required this.breed,
     required this.condition,
-    required this.confidence,
     this.imagePath,
     required this.onClose,
   });
@@ -996,7 +1060,9 @@ class _ShareScreenState extends State<_ShareScreen> {
 
     try {
       // Paylaşım kartını resme çevir
-      final boundary = _shareCardKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      final boundary =
+          _shareCardKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
       if (boundary == null) {
         throw Exception('Kart bulunamadı');
       }
@@ -1007,7 +1073,9 @@ class _ShareScreenState extends State<_ShareScreen> {
 
       // Geçici dosyaya kaydet
       final tempDir = await getTemporaryDirectory();
-      final file = File('${tempDir.path}/th_takvim_hayvan_${DateTime.now().millisecondsSinceEpoch}.png');
+      final file = File(
+        '${tempDir.path}/th_takvim_hayvan_${DateTime.now().millisecondsSinceEpoch}.png',
+      );
       await file.writeAsBytes(pngBytes);
 
       // Önce loading'i kapat
@@ -1020,7 +1088,8 @@ class _ShareScreenState extends State<_ShareScreen> {
       // Paylaş
       await Share.shareXFiles(
         [XFile(file.path)],
-        text: '🐄 Hayvanımın ağırlığı: ${widget.weight.toStringAsFixed(1)} kg\n\n📱 TH Takvim uygulaması ile ölçüldü!\n#THtakvim #hayvancılık #çiftçi',
+        text:
+            '🐄 Hayvanımın yaklaşık ağırlığı: ${widget.weight.toStringAsFixed(0)} kg\n\n📱 Çiftçi+ ile tahmin edildi. Tartı ile doğrulanmalıdır.\n#THtakvim #hayvancılık #çiftçi',
       );
     } catch (e) {
       if (mounted) {
@@ -1060,7 +1129,7 @@ class _ShareScreenState extends State<_ShareScreen> {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          
+
           // Header
           Padding(
             padding: const EdgeInsets.all(16),
@@ -1085,7 +1154,7 @@ class _ShareScreenState extends State<_ShareScreen> {
               ],
             ),
           ),
-          
+
           // Paylaşım kartı
           Expanded(
             child: SingleChildScrollView(
@@ -1100,10 +1169,7 @@ class _ShareScreenState extends State<_ShareScreen> {
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: [
-                            Colors.green[700]!,
-                            Colors.green[900]!,
-                          ],
+                          colors: [Colors.green[700]!, Colors.green[900]!],
                         ),
                         borderRadius: BorderRadius.circular(20),
                       ),
@@ -1119,7 +1185,11 @@ class _ShareScreenState extends State<_ShareScreen> {
                                   color: Colors.white.withOpacity(0.2),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: const Icon(Icons.pets, color: Colors.white, size: 24),
+                                child: const Icon(
+                                  Icons.pets,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
                               ),
                               const SizedBox(width: 12),
                               const Text(
@@ -1132,11 +1202,12 @@ class _ShareScreenState extends State<_ShareScreen> {
                               ),
                             ],
                           ),
-                          
+
                           const SizedBox(height: 20),
-                          
+
                           // Hayvan fotoğrafı
-                          if (widget.imagePath != null && File(widget.imagePath!).existsSync())
+                          if (widget.imagePath != null &&
+                              File(widget.imagePath!).existsSync())
                             ClipRRect(
                               borderRadius: BorderRadius.circular(16),
                               child: Image.file(
@@ -1154,15 +1225,22 @@ class _ShareScreenState extends State<_ShareScreen> {
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: const Center(
-                                child: Icon(Icons.pets, color: Colors.white54, size: 64),
+                                child: Icon(
+                                  Icons.pets,
+                                  color: Colors.white54,
+                                  size: 64,
+                                ),
                               ),
                             ),
-                          
+
                           const SizedBox(height: 20),
-                          
+
                           // Ağırlık
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(16),
@@ -1177,7 +1255,7 @@ class _ShareScreenState extends State<_ShareScreen> {
                                   ),
                                 ),
                                 Text(
-                                  '${widget.weight.toStringAsFixed(1)} kg',
+                                  '${widget.weight.toStringAsFixed(0)} kg',
                                   style: TextStyle(
                                     color: Colors.green[700],
                                     fontSize: 36,
@@ -1187,12 +1265,15 @@ class _ShareScreenState extends State<_ShareScreen> {
                               ],
                             ),
                           ),
-                          
+
                           const SizedBox(height: 20),
-                          
+
                           // Watermark - şık tasarım
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.15),
                               borderRadius: BorderRadius.circular(12),
@@ -1202,7 +1283,11 @@ class _ShareScreenState extends State<_ShareScreen> {
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.verified, color: Colors.white.withOpacity(0.9), size: 16),
+                                    Icon(
+                                      Icons.verified,
+                                      color: Colors.white.withOpacity(0.9),
+                                      size: 16,
+                                    ),
                                     const SizedBox(width: 6),
                                     Text(
                                       'TH Takvim',
@@ -1224,7 +1309,7 @@ class _ShareScreenState extends State<_ShareScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'Hayvanınızın Ücretsiz Kilo Ölçümünü Yapın',
+                                  'Hayvanınızın Yaklaşık Ağırlığını Hesaplayın',
                                   style: TextStyle(
                                     color: Colors.white.withOpacity(0.6),
                                     fontSize: 9,
@@ -1237,20 +1322,17 @@ class _ShareScreenState extends State<_ShareScreen> {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Sosyal medya butonları
                   const Text(
                     'Paylaşmak için bir platform seçin',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                    ),
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   if (_isSharing)
                     const CircularProgressIndicator(color: Colors.green)
                   else
@@ -1289,9 +1371,9 @@ class _ShareScreenState extends State<_ShareScreen> {
                         ),
                       ],
                     ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Ana sayfaya dön butonu
                   SizedBox(
                     width: double.infinity,
@@ -1308,39 +1390,10 @@ class _ShareScreenState extends State<_ShareScreen> {
                       child: const Text('Ana Sayfaya Dön'),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 20),
                 ],
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailChip(String label, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
-              fontSize: 10,
-            ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
             ),
           ),
         ],
@@ -1370,10 +1423,7 @@ class _ShareScreenState extends State<_ShareScreen> {
           const SizedBox(height: 8),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 11,
-            ),
+            style: const TextStyle(color: Colors.white70, fontSize: 11),
           ),
         ],
       ),

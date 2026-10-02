@@ -1,4 +1,8 @@
+import '../services/analysis_credits.dart';
+import 'analysis_credits_card.dart';
 import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -16,7 +20,7 @@ class PlantDoctorCard extends StatefulWidget {
 class _PlantDoctorCardState extends State<PlantDoctorCard> {
   final ImagePicker _picker = ImagePicker();
   final PlantAnalysisService _analysisService = PlantAnalysisService();
-  
+
   bool _isAnalyzing = false;
   PlantAnalysis? _currentAnalysis;
   List<PlantAnalysis> _recentAnalyses = [];
@@ -25,6 +29,12 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
   void initState() {
     super.initState();
     _loadRecentAnalyses();
+  }
+
+  @override
+  void dispose() {
+    _analysisService.dispose();
+    super.dispose();
   }
 
   Future<void> _loadRecentAnalyses() async {
@@ -43,6 +53,7 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
+    if (_isAnalyzing) return;
     try {
       final XFile? image = await _picker.pickImage(
         source: source,
@@ -51,7 +62,7 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
         imageQuality: 85,
       );
 
-      if (image == null) return;
+      if (image == null || !mounted) return;
 
       if (mounted) {
         setState(() {
@@ -60,8 +71,35 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
         });
       }
 
-      final analysis = await _analysisService.analyzePlant(image.path);
-      await PlantStorageService.saveAnalysis(analysis);
+      // Picker files may be purged from the temporary directory. Keep the
+      // successful analysis photo in application documents before saving it.
+      final analysis = await _analysisService.analyzePlant(
+        image.path,
+        persist: (result) async {
+          final documents = await getApplicationDocumentsDirectory();
+          final imageDirectory = Directory(
+            path.join(documents.path, 'plant_images'),
+          );
+          await imageDirectory.create(recursive: true);
+          final savedImage = await File(image.path).copy(
+            path.join(
+              imageDirectory.path,
+              '${result.id}${path.extension(image.path)}',
+            ),
+          );
+          final saved = PlantAnalysis.fromJson({
+            ...result.toJson(),
+            'imagePath': savedImage.path,
+          });
+          try {
+            await PlantStorageService.saveAnalysis(saved);
+          } catch (_) {
+            await savedImage.delete();
+            rethrow;
+          }
+          return saved;
+        },
+      );
 
       if (mounted) {
         setState(() {
@@ -80,6 +118,11 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
             duration: Duration(seconds: 2),
           ),
         );
+      }
+    } on NoAnalysisCredits {
+      if (mounted) {
+        setState(() => _isAnalyzing = false);
+        await showCreditsDialog(context);
       }
     } catch (e) {
       if (mounted) {
@@ -159,10 +202,7 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
               SizedBox(height: 2),
               Text(
                 'AI ile Bitki Hastalık Tespiti',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: Colors.white70, fontSize: 12),
               ),
             ],
           ),
@@ -188,7 +228,11 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 10),
+                  const Icon(
+                    Icons.arrow_forward_ios,
+                    color: Colors.white,
+                    size: 10,
+                  ),
                 ],
               ),
             ),
@@ -213,11 +257,7 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.camera_alt,
-                    color: Colors.green[700],
-                    size: 20,
-                  ),
+                  Icon(Icons.camera_alt, color: Colors.green[700], size: 20),
                   const SizedBox(width: 8),
                   Text(
                     'Kamera',
@@ -232,9 +272,9 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
             ),
           ),
         ),
-        
+
         const SizedBox(width: 12),
-        
+
         // Galeri butonu
         Expanded(
           child: GestureDetector(
@@ -252,11 +292,7 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.photo_library,
-                    color: Colors.white,
-                    size: 20,
-                  ),
+                  Icon(Icons.photo_library, color: Colors.white, size: 20),
                   SizedBox(width: 8),
                   Text(
                     'Galeri',
@@ -285,18 +321,11 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.auto_awesome,
-            color: Colors.white70,
-            size: 14,
-          ),
+          Icon(Icons.auto_awesome, color: Colors.white70, size: 14),
           SizedBox(width: 6),
           Text(
             'ChatGPT Vision AI ile analiz',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 11,
-            ),
+            style: TextStyle(color: Colors.white70, fontSize: 11),
           ),
         ],
       ),
@@ -320,57 +349,8 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
           SizedBox(width: 12),
           Text(
             'Analiz ediliyor...',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: Colors.white70, fontSize: 12),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: [
-          Icon(Icons.eco, size: 48, color: Colors.green[300]),
-          const SizedBox(height: 12),
-          Text(
-            _recentAnalyses.isEmpty ? 'Henüz analiz yok' : 'Yeni analiz için fotoğraf çekin',
-            style: TextStyle(
-              color: Colors.grey[700],
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Bitki fotoğrafı çekerek başlayın',
-            style: TextStyle(
-              color: Colors.grey[500],
-              fontSize: 12,
-            ),
-          ),
-          if (_recentAnalyses.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            TextButton.icon(
-              onPressed: () {
-                setState(() {
-                  _currentAnalysis = _recentAnalyses.first;
-                });
-              },
-              icon: Icon(Icons.history, size: 16, color: Colors.green[600]),
-              label: Text(
-                'Son analizi göster (${_recentAnalyses.length})',
-                style: TextStyle(
-                  color: Colors.green[600],
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -378,7 +358,7 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
 
   Widget _buildAnalysisResult() {
     final analysis = _currentAnalysis!;
-    
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
@@ -395,7 +375,7 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
               ),
             ),
           const SizedBox(height: 16),
-          
+
           _buildInfoRow(
             Icons.local_florist,
             'Bitki',
@@ -421,26 +401,26 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
             '%${(analysis.confidence * 100).toStringAsFixed(0)}',
             Colors.purple,
           ),
-          
+
           const SizedBox(height: 16),
           const Divider(),
           const SizedBox(height: 8),
-          
+
           if (analysis.diseases.isNotEmpty) ...[
             _buildSection('🔍 Tespit Edilen Sorunlar', analysis.diseases),
             const SizedBox(height: 12),
           ],
-          
+
           if (analysis.treatments.isNotEmpty) ...[
             _buildSection('💊 Tedavi Önerileri', analysis.treatments),
             const SizedBox(height: 12),
           ],
-          
+
           if (analysis.careAdvice.isNotEmpty) ...[
             _buildSection('🌱 Bakım Tavsiyeleri', analysis.careAdvice),
             const SizedBox(height: 12),
           ],
-          
+
           Row(
             children: [
               Expanded(
@@ -462,7 +442,7 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
               ),
             ],
           ),
-          
+
           if (analysis.harvestTime != null) ...[
             const SizedBox(height: 8),
             _buildScheduleChip(
@@ -472,19 +452,16 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
               Colors.orange,
             ),
           ],
-          
+
           if (analysis.preventionTips.isNotEmpty) ...[
             const SizedBox(height: 12),
             _buildSection('🐛 Zararlı Önleme', analysis.preventionTips),
           ],
-          
+
           const SizedBox(height: 12),
           Text(
             'Analiz: ${DateFormat('dd MMM yyyy, HH:mm', 'tr_TR').format(analysis.timestamp)}',
-            style: TextStyle(
-              color: Colors.grey[500],
-              fontSize: 11,
-            ),
+            style: TextStyle(color: Colors.grey[500], fontSize: 11),
           ),
         ],
       ),
@@ -534,29 +511,33 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
           ),
         ),
         const SizedBox(height: 6),
-        ...items.map((item) => Padding(
-          padding: const EdgeInsets.only(left: 8, bottom: 4),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('• ', style: TextStyle(color: Colors.green[600])),
-              Expanded(
-                child: Text(
-                  item,
-                  style: TextStyle(
-                    color: Colors.grey[800],
-                    fontSize: 12,
+        ...items.map(
+          (item) => Padding(
+            padding: const EdgeInsets.only(left: 8, bottom: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('• ', style: TextStyle(color: Colors.green[600])),
+                Expanded(
+                  child: Text(
+                    item,
+                    style: TextStyle(color: Colors.grey[800], fontSize: 12),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        )),
+        ),
       ],
     );
   }
 
-  Widget _buildScheduleChip(IconData icon, String label, String value, Color color) {
+  Widget _buildScheduleChip(
+    IconData icon,
+    String label,
+    String value,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -600,7 +581,8 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
 
   Color _getStatusColor(String status) {
     if (status.contains('Sağlıklı')) return Colors.green;
-    if (status.contains('Hastalık') || status.contains('Zararlı')) return Colors.red;
+    if (status.contains('Hastalık') || status.contains('Zararlı'))
+      return Colors.red;
     if (status.contains('Eksiklik')) return Colors.orange;
     return Colors.grey;
   }
@@ -738,9 +720,14 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
-                          color: _getStatusColor(analysis.status).withOpacity(0.1),
+                          color: _getStatusColor(
+                            analysis.status,
+                          ).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -756,11 +743,11 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    DateFormat('dd MMM yyyy, HH:mm', 'tr_TR').format(analysis.timestamp),
-                    style: TextStyle(
-                      color: Colors.grey[500],
-                      fontSize: 11,
-                    ),
+                    DateFormat(
+                      'dd MMM yyyy, HH:mm',
+                      'tr_TR',
+                    ).format(analysis.timestamp),
+                    style: TextStyle(color: Colors.grey[500], fontSize: 11),
                   ),
                 ],
               ),

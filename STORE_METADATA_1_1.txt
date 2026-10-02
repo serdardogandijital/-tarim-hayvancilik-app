@@ -1,0 +1,19 @@
+Çiftçi+ 1.1.0 mağaza metinleri (ücretli paketler ertelendi)
+
+Yeni sürümdeki yenilikler
+Çiftliğinizin günlük işlerini ana sayfada görün. Tohumlama, doğum, aşı ve bakım kayıtlarını; yem/malzeme stoklarını ve gelir-gideri takip edin. Canlı baskül ve bitki analizinde ilk kullanımda 3 hak, sonraki günlerin ilk girişinde +1 bonus hak kazanın. Fotoğraflı analizler ve hava durumu için internet gerekir.
+
+App Store / Play Store açıklaması taslağı
+Çiftçi+ tarla ve hayvan kayıtlarınızı bir arada tutar. Yaklaşan işleri, aşıları, eksilen stokları ve günlük çiftlik özetini ana sayfada görürsünüz.
+
+Hayvanlarınız için sağlık, aşı, tohumlama, doğum ve süt kayıtları oluşturabilirsiniz. Tarlalarınızın ekim ve hasat bilgilerini, yem ve malzeme stoklarını, gelir ile giderlerinizi takip edebilirsiniz. Kayıtlarınız cihazınızda saklanır.
+
+Canlı baskül, hayvan fotoğrafları ve ölçülerinden yaklaşık ağırlık tahmini sunar. Bitki analizi, fotoğraftaki olası sorunları değerlendirmeye yardımcı olur. Fotoğraflı yapay zekâ analizi için internet bağlantısı ve size ait OpenAI API anahtarı gerekir. Sonuçlar kesin teşhis değildir; önemli sağlık ve tedavi kararlarında veterinere veya uzmana danışın.
+
+İlk kullanımda 3 analiz hakkı tanımlanır. Sonraki günlerin ilk girişinde 1 bonus hak eklenir. Başarılı fotoğraflı analiz 1 hak kullanır; ölçü girerek yapılan hesaplama ücretsizdir. Bu sürümde analiz hakkı satın alma ve canlı reklam gösterimi yoktur.
+
+Yayın kontrolü
+- Gizlilik politikası URL'si güncel HTML içeriğine yönlenmeli.
+- App Store gizlilik beyanı ve Play Data Safety gerçek SDK/veri akışına göre kontrol edilmeli.
+- Mağaza metnindeki ücretsiz/reklamsız ve veri paylaşılmıyor iddiaları bu taslakla değiştirilmeli.
+- Apple'daki ücretli ürün taslakları 1.1.0 sürüm incelemesine eklenmemeli.

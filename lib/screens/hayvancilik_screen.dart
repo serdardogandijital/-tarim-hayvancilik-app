@@ -1,3 +1,4 @@
+import '../services/safe_list_store.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -36,11 +37,11 @@ class _HayvancilikScreenState extends State<HayvancilikScreen> {
 
     if (selectedCity != null && mounted) {
       await context.read<LocationNotifier>().updateLocation(
-            city: selectedCity.name,
-            address: selectedCity.name,
-            isManual: true,
-            notifyLoading: false,
-          );
+        city: selectedCity.name,
+        address: selectedCity.name,
+        isManual: true,
+        notifyLoading: false,
+      );
     }
   }
 
@@ -49,36 +50,66 @@ class _HayvancilikScreenState extends State<HayvancilikScreen> {
     for (final animal in loadedAnimals) {
       await NotificationService.instance.scheduleAnimalNotifications(animal);
     }
+    if (!mounted) return;
     setState(() {
       _animals = loadedAnimals;
     });
   }
 
   Future<void> _addAnimal(Animal animal) async {
-    await AnimalStorageService.addAnimal(animal);
-    await NotificationService.instance.scheduleAnimalNotifications(animal);
-    setState(() {
-      _animals.add(animal);
-    });
+    try {
+      await AnimalStorageService.addAnimal(animal);
+      await NotificationService.instance.scheduleAnimalNotifications(animal);
+      if (!mounted) return;
+      setState(() {
+        _animals.add(animal);
+      });
+    } on StorageFailure catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
   }
 
   Future<void> _deleteAnimal(String id) async {
-    await AnimalStorageService.deleteAnimal(id);
-    NotificationService.instance.cancelNotificationsForEntity(id);
-    setState(() {
-      _animals.removeWhere((animal) => animal.id == id);
-    });
+    try {
+      await AnimalStorageService.deleteAnimal(id);
+      await NotificationService.instance.cancelNotificationsForEntity(
+        id,
+        scopes: NotificationService.animalScopes,
+      );
+      if (!mounted) return;
+      setState(() {
+        _animals.removeWhere((animal) => animal.id == id);
+      });
+    } on StorageFailure catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
   }
 
   Future<void> _updateAnimal(Animal updatedAnimal) async {
-    await AnimalStorageService.updateAnimal(updatedAnimal);
-    await NotificationService.instance.scheduleAnimalNotifications(updatedAnimal);
-    setState(() {
-      final index = _animals.indexWhere((a) => a.id == updatedAnimal.id);
-      if (index != -1) {
-        _animals[index] = updatedAnimal;
-      }
-    });
+    try {
+      await AnimalStorageService.updateAnimal(updatedAnimal);
+      await NotificationService.instance.scheduleAnimalNotifications(
+        updatedAnimal,
+      );
+      if (!mounted) return;
+      setState(() {
+        final index = _animals.indexWhere((a) => a.id == updatedAnimal.id);
+        if (index != -1) {
+          _animals[index] = updatedAnimal;
+        }
+      });
+    } on StorageFailure catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
   }
 
   @override
@@ -99,13 +130,6 @@ class _HayvancilikScreenState extends State<HayvancilikScreen> {
         ),
         backgroundColor: const Color(0xFFF5F1E8),
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            color: const Color(0xFF8B8B8B),
-            onPressed: () {},
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -124,6 +148,7 @@ class _HayvancilikScreenState extends State<HayvancilikScreen> {
             LivestockAnimalsCard(
               animals: _animals,
               onAnimalAdded: _addAnimal,
+              onRecordsChanged: _loadAnimals,
               onAnimalUpdated: _updateAnimal,
               onAnimalDeleted: _deleteAnimal,
             ),

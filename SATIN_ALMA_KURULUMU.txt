@@ -1,0 +1,90 @@
+ÇİFTÇİ+ — ANALİZ HAKKI PAKETLERİ / 2026-10-02
+
+Mevcut durum
+Uygulama ekranı, RevenueCat SDK bağlantısı, mağaza fiyatlarını okuma,
+ödeme/onay bekleme/iptal/tekrar kontrol akışı ve doğrulanmış hakların
+tek seferlik yerel teslimi hazır. Gerçek satış KAPALI.
+RevenueCat projesi, App Store / Google Play ürünleri ve doğrulama sunucusu
+henüz oluşturulup bağlanmadı. Kodun varlığı mağaza kurulumu anlamına gelmez.
+
+Ürünler (iki platformda aynı product ID)
+- ciftci_analiz_10: 10 analiz hakkı; talep edilen Türkiye fiyatı 9,99 TL
+- ciftci_analiz_50: 50 analiz hakkı; talep edilen Türkiye fiyatı 44,99 TL
+Tür: consumable / tüketilebilir tek seferlik ürün. Abonelik değildir.
+Uygulama ürün bulunduğunda fiyatı SDK priceString alanından gösterir.
+Sabit TL fiyatlar yalnız satış dışı taslak ekranında 'Planlanan fiyat' olarak
+kullanılır. Mağazada tam fiyat noktaları doğrulanmadan satış fiyatı sayılmaz.
+Bir ürün mağazada eksikse onun için satın alma düğmesi çıkmaz.
+
+Mağaza uygulamaları
+App Store: com.thtakvim.tarimHayvancilikApp
+Google Play: com.thtakvim.tarim_hayvancilik_app
+Telefondaki .dev bundle kimliği mağaza uygulamasından ayrıdır. Bu kimlikle
+asıl uygulamanın ürünlerini test ettiğimizi iddia etmeyin; sandbox için
+ayrı uygulama/ürün yapılandırması ya da kontrollü TestFlight yapısı gerekir.
+
+Canlıya geçiş için kalan işler
+1) Mağazalarda yukarıdaki iki tüketilebilir ürünü, TR ad/açıklama ve fiyatla
+   oluşturun. İlgili ücretli uygulama sözleşmesi/vergi/ödeme ayarlarını
+   kontrol edin. Apple'da ilk satın alma ürünlerini uygulama sürümüyle
+   incelemeye ekleyin; Google lisans test kullanıcılarını yapılandırın.
+2) RevenueCat'te bu uygulamaya ait proje ve iOS/Android uygulamalarını
+   oluşturun; mağaza doğrulama kimlik bilgilerini yalnız RevenueCat'e
+   verin. Ürünleri içeri alın. Tüketilebilir paketleri sonsuz bir premium
+   entitlement olarak işaretlemeyin. Bildirim/iade bağlantılarını kurun.
+3) Kimliği doğrulanmış kullanıcı oturumu + sunucuda hak defteri gerekir.
+   Mevcut yerel hak sistemi tek başına ödeme sonrası geri yükleme/başka
+   cihazda kullanım ve iade uzlaşması garantisi vermez. Sunucu tarafı
+   analiz tüketim/rezervasyon/iade kayıtları, hesap geri kazanımı ve
+   yedekleme tamamlanmadan ANALYSIS_PURCHASES_ENABLED açılmamalıdır.
+4) Analizler şu an kişisel API anahtarıyla çalışır. Son kullanıcıdan API
+   anahtarı istemeyen sunucu analiz akışı, maliyet sınırları ve kötüye
+   kullanım kontrolleri satıştan önce tamamlanmalıdır. API maliyeti,
+   mağaza kesintileri ve vergi sonrası paketlerin maliyetini doğrulayın.
+5) Aşağıdaki doğrulama sözleşmesini sunucuda uygulayın. Bu dosya sözleşme
+   tanımıdır, dağıtılmış veya çalışan sunucu değildir.
+6) Sandbox'ta gerçek cihazda 10/50 alımı, iptal, bekleyen ödeme, uygulama
+   kapanması, çevrimdışı/yeniden açılma, iade ve hesap geri kazanımı testleri
+   tamamlanınca canlı satış bayrağını açın. Şu an sadece taklit servisli
+   otomatik testler var; gerçek ödeme/sandbox işlemi yapılmadı.
+
+Yapılandırma
+ANALYSIS_PURCHASES_ENABLED=true (varsayılan false; yukarıdaki eksikler bitmeden açmayın)
+REVENUECAT_IOS_PUBLIC_KEY / REVENUECAT_ANDROID_PUBLIC_KEY: bu projeye ait SDK anahtarları.
+PURCHASE_VERIFICATION_URL: HTTPS doğrulama uç noktası.
+SecureStorage purchase_session_v1: doğrulanmış oturum akışı tarafından yazılan
+{"customerId":"sunucunun atadığı RC müşterisi","token":"kullanıcıya ait kısa ömürlü token"}.
+Bu oturumu şu an oluşturan giriş/sunucu altyapısı yoktur; eksik oturum
+satın almayı kapalı tutar. Gizli RevenueCat/Apple/Google anahtarları asla
+Dart tanımıyla uygulamaya eklenmez. Oturum/fiş/token loglanmaz.
+
+GET hazır olma / oturum kontrolü (aynı HTTPS uç noktası)
+Authorization: Bearer <doğrulanmış kullanıcı oturumu>
+200: {customerId,canPurchase:true}; oturum geçerli, hak defteri ve analiz
+hizmeti hazır olmadan true dönmez. Her checkout öncesi yeniden çağrılır.
+Eksik/yanlış hesap veya geçersiz oturumda mağaza ödeme penceresi açılmaz.
+
+POST doğrulama sözleşmesi
+Authorization: Bearer <doğrulanmış kullanıcı oturumu>
+İstek: {transactionId, productId, store: app_store | play_store}
+- Kullanıcıyı token'dan belirleyin, istemcinin yolladığı customer ID'ye güvenmeyin.
+- RevenueCat'in sunucu API'si / mağaza kayıtlarından işlemi doğrulayın.
+- Ürünü, ortamı (sandbox/live), mağazayı, uygulamayı, sahipliği, ödenmiş
+  ve iptal/iade edilmemiş durumunu doğrulayın. Client callback yeterli değildir.
+- Miktarı sunucudaki ürün tablosundan alın (10/50); istemciden miktar kabul etmeyin.
+- Mağaza + işlem için global benzersiz grant kaydı tutun. Aynı işlem başka
+  kullanıcıya aktarılamaz. Aynı kullanıcı tekrar isteyince aynı grantId dönün.
+- Başarı 200:
+  {verified:true,customerId,transactionId,productId,credits:10|50,grantId}
+- Onay bekliyor veya veri eksikse doğrulanmış cevap dönmeyin.
+İstemci bu alanların tamamını beklenen oturum/ürün/işlemle karşılaştırır.
+Yerel receipt ve grant birlikte tek SecureStorage yazımıyla saklanır.
+Kaydetme başarısızsa SDK geçmişi tekrar okunur; tekrar satın alma başlatılmaz.
+Ödemeyi kontrol et düğmesi yeni ödeme başlatmaz. Tüketilmiş hakları sıfırlayıp
+eski fişleri yeniden hibe eden bir 'geri yükle' akışı oluşturmayın.
+
+Kaynaklar
+https://www.revenuecat.com/docs/platform-resources/non-subscriptions
+https://www.revenuecat.com/docs/offerings/virtual-currency
+https://developer.android.com/google/play/billing/security
+https://developer.apple.com/in-app-purchase/

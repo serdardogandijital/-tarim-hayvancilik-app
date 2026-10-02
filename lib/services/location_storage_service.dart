@@ -16,16 +16,16 @@ class LocationStorageService {
     required bool isManual,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     if (city != null) {
       await prefs.setString(_cityKey, city);
     } else {
       await prefs.remove(_cityKey);
     }
-    
+
     await prefs.setString(_addressKey, address);
     await prefs.setBool(_isManualKey, isManual);
-    
+
     if (latitude != null && longitude != null) {
       await prefs.setDouble(_latitudeKey, latitude);
       await prefs.setDouble(_longitudeKey, longitude);
@@ -38,10 +38,10 @@ class LocationStorageService {
   // Konum bilgilerini yükle
   static Future<Map<String, dynamic>> loadLocation() async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     return {
       'city': prefs.getString(_cityKey),
-      'address': prefs.getString(_addressKey) ?? 'Konum alınıyor...',
+      'address': prefs.getString(_addressKey) ?? 'Konum seçilmedi',
       'latitude': prefs.getDouble(_latitudeKey),
       'longitude': prefs.getDouble(_longitudeKey),
       'isManual': prefs.getBool(_isManualKey) ?? false,

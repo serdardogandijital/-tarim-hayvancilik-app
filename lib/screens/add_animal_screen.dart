@@ -72,7 +72,9 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
       context: context,
       initialDate: type == 'birth'
           ? _birthDate
-          : (type == 'lastBirth' ? (_lastBirthDate ?? DateTime.now()) : (_nextHeatDate ?? DateTime.now())),
+          : (type == 'lastBirth'
+                ? (_lastBirthDate ?? DateTime.now())
+                : (_nextHeatDate ?? DateTime.now())),
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     );
@@ -92,7 +94,9 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
   void _saveAnimal() {
     if (_formKey.currentState!.validate()) {
       final animal = Animal(
-        id: widget.animal?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        id:
+            widget.animal?.id ??
+            DateTime.now().millisecondsSinceEpoch.toString(),
         name: _nameController.text,
         type: _selectedType,
         breed: _breedController.text,
@@ -101,6 +105,12 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
         nextHeatDate: _nextHeatDate,
         notes: _notesController.text,
         attachments: _attachments,
+        vaccines: widget.animal?.vaccines,
+        milkRecords: widget.animal?.milkRecords,
+        breedingRecords: widget.animal?.breedingRecords,
+        milkTrackingEnabled: widget.animal?.milkTrackingEnabled,
+        dailyFeedAmount: widget.animal?.dailyFeedAmount,
+        monthlyFeedCost: widget.animal?.monthlyFeedCost,
       );
       Navigator.pop(context, animal);
     }
@@ -214,7 +224,10 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
 
   Future<String> _copyFileToAppDir(File sourceFile, String originalName) async {
     final dir = await _ensureAttachmentDir();
-    final sanitizedName = originalName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+    final sanitizedName = originalName.replaceAll(
+      RegExp(r'[^a-zA-Z0-9._-]'),
+      '_',
+    );
     final targetPath = p.join(
       dir.path,
       '${DateTime.now().millisecondsSinceEpoch}_$sanitizedName',
@@ -223,9 +236,15 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
     return newFile.path;
   }
 
-  Future<String> _saveBytesToAppDir(Uint8List bytes, String originalName) async {
+  Future<String> _saveBytesToAppDir(
+    Uint8List bytes,
+    String originalName,
+  ) async {
     final dir = await _ensureAttachmentDir();
-    final sanitizedName = originalName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+    final sanitizedName = originalName.replaceAll(
+      RegExp(r'[^a-zA-Z0-9._-]'),
+      '_',
+    );
     final targetPath = p.join(
       dir.path,
       '${DateTime.now().millisecondsSinceEpoch}_$sanitizedName',
@@ -237,7 +256,9 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
 
   Future<Directory> _ensureAttachmentDir() async {
     final baseDir = await getApplicationDocumentsDirectory();
-    final attachmentsDir = Directory(p.join(baseDir.path, 'animal_attachments'));
+    final attachmentsDir = Directory(
+      p.join(baseDir.path, 'animal_attachments'),
+    );
     if (!await attachmentsDir.exists()) {
       await attachmentsDir.create(recursive: true);
     }
@@ -252,9 +273,9 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   IconData _attachmentIcon(String type, String fileName) {
@@ -303,10 +324,7 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
                 prefixIcon: Icon(Icons.category),
               ),
               items: _animalTypes.map((String type) {
-                return DropdownMenuItem<String>(
-                  value: type,
-                  child: Text(type),
-                );
+                return DropdownMenuItem<String>(value: type, child: Text(type));
               }).toList(),
               onChanged: (String? newValue) {
                 setState(() {
@@ -332,7 +350,9 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
             const SizedBox(height: 16),
             ListTile(
               title: const Text('Doğum Tarihi'),
-              subtitle: Text(DateFormat('dd MMMM yyyy', 'tr_TR').format(_birthDate)),
+              subtitle: Text(
+                DateFormat('dd MMMM yyyy', 'tr_TR').format(_birthDate),
+              ),
               leading: const Icon(Icons.cake),
               trailing: const Icon(Icons.calendar_today),
               onTap: () => _selectDate(context, 'birth'),
@@ -344,9 +364,14 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
             const SizedBox(height: 16),
             ListTile(
               title: const Text('Son Doğurma Tarihi (Opsiyonel)'),
-              subtitle: Text(_lastBirthDate != null
-                  ? DateFormat('dd MMMM yyyy', 'tr_TR').format(_lastBirthDate!)
-                  : 'Seçilmedi'),
+              subtitle: Text(
+                _lastBirthDate != null
+                    ? DateFormat(
+                        'dd MMMM yyyy',
+                        'tr_TR',
+                      ).format(_lastBirthDate!)
+                    : 'Seçilmedi',
+              ),
               leading: const Icon(Icons.child_care),
               trailing: _lastBirthDate != null
                   ? IconButton(
@@ -367,9 +392,11 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
             const SizedBox(height: 16),
             ListTile(
               title: const Text('Sonraki Kızgınlık Takibi (Opsiyonel)'),
-              subtitle: Text(_nextHeatDate != null
-                  ? DateFormat('dd MMMM yyyy', 'tr_TR').format(_nextHeatDate!)
-                  : 'Seçilmedi'),
+              subtitle: Text(
+                _nextHeatDate != null
+                    ? DateFormat('dd MMMM yyyy', 'tr_TR').format(_nextHeatDate!)
+                    : 'Seçilmedi',
+              ),
               leading: const Icon(Icons.event),
               trailing: _nextHeatDate != null
                   ? IconButton(
@@ -412,7 +439,10 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
               ),
               child: Text(
                 widget.animal == null ? 'Kaydet' : 'Güncelle',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -434,10 +464,7 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
               children: [
                 const Text(
                   'Belgeler / Fotoğraflar',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
                 TextButton.icon(
                   onPressed: _showAttachmentOptions,
@@ -482,8 +509,10 @@ class _AddAnimalScreenState extends State<AddAnimalScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         subtitle: Text(
-                          DateFormat('dd MMM yyyy, HH:mm', 'tr_TR')
-                              .format(attachment.addedAt),
+                          DateFormat(
+                            'dd MMM yyyy, HH:mm',
+                            'tr_TR',
+                          ).format(attachment.addedAt),
                         ),
                         trailing: IconButton(
                           icon: const Icon(Icons.close),

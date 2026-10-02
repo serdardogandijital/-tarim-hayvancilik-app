@@ -4,7 +4,7 @@ import '../services/location_storage_service.dart';
 
 class LocationNotifier extends ChangeNotifier {
   String? _city;
-  String _address = 'Konum alınıyor...';
+  String _address = 'Konum seçilmedi';
   double? _latitude;
   double? _longitude;
   bool _isManual = false;

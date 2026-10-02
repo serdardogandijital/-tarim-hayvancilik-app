@@ -1,184 +1,26 @@
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/field.dart';
+import 'safe_list_store.dart';
 
 class FieldStorageService {
-  static const String _fieldsKey = 'fields_data';
-  static const String _isInitializedKey = 'fields_initialized';
-
-  // Tarlaları kaydet
-  static Future<void> saveFields(List<Field> fields) async {
-    final prefs = await SharedPreferences.getInstance();
-    final fieldsJson = fields.map((field) => field.toJson()).toList();
-    await prefs.setString(_fieldsKey, jsonEncode(fieldsJson));
-  }
-
-  // Tarlaları yükle
-  static Future<List<Field>> loadFields() async {
-    final prefs = await SharedPreferences.getInstance();
-    final fieldsString = prefs.getString(_fieldsKey);
-    final isInitialized = prefs.getBool(_isInitializedKey) ?? false;
-    
-    // Eğer daha önce hiç başlatılmamışsa, demo verileri göster ve başlatıldı olarak işaretle
-    if (!isInitialized && (fieldsString == null || fieldsString.isEmpty)) {
-      final defaultFields = _getDefaultFields();
-      await saveFields(defaultFields);
-      await prefs.setBool(_isInitializedKey, true);
-      return defaultFields;
-    }
-    
-    // Başlatılmış ama veri yoksa boş liste döndür
-    if (fieldsString == null || fieldsString.isEmpty) {
-      return [];
-    }
-    
-    try {
-      final List<dynamic> fieldsJson = jsonDecode(fieldsString);
-      // Başarılı yükleme sonrası initialized olarak işaretle
-      if (!isInitialized) {
-        await prefs.setBool(_isInitializedKey, true);
-      }
-      return fieldsJson.map((json) => Field.fromJson(json)).toList();
-    } catch (e) {
-      print('Tarla verileri yüklenirken hata: $e');
-      return [];
-    }
-  }
-
-  // Tek bir tarlayı güncelle
-  static Future<void> updateField(Field updatedField) async {
-    final fields = await loadFields();
-    final index = fields.indexWhere((f) => f.id == updatedField.id);
-    if (index != -1) {
-      fields[index] = updatedField;
-      await saveFields(fields);
-    }
-  }
-
-  // Tarla ekle
-  static Future<void> addField(Field field) async {
-    final fields = await loadFields();
-    fields.add(field);
-    await saveFields(fields);
-  }
-
-  // Tarla sil
-  static Future<void> deleteField(String fieldId) async {
-    final fields = await loadFields();
-    fields.removeWhere((f) => f.id == fieldId);
-    await saveFields(fields);
-  }
-
-  // Tüm verileri temizle (test için)
-  static Future<void> clearAllData() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_fieldsKey);
-  }
-
-  // Demo veriler (ilk açılışta)
-  static List<Field> _getDefaultFields() {
-    return [
-      Field(
-        id: '1',
-        name: 'Tarla 1',
-        area: 2.5,
-        currentCrop: 'Buğday',
-        plantingDate: DateTime(2025, 10, 15),
-        harvestDate: DateTime(2026, 6, 25),
-        latitude: 39.92077,
-        longitude: 32.85411,
-        locationName: 'Ankara • Gölbaşı',
-        ownership: FieldOwnership.own,
-        tasks: [
-          Task(
-            id: '1',
-            title: 'Toprak hazırlığı',
-            isCompleted: true,
-            category: TaskCategory.beforePlanting,
-          ),
-          Task(
-            id: '2',
-            title: 'Gübreleme',
-            isCompleted: true,
-            category: TaskCategory.beforePlanting,
-          ),
-          Task(
-            id: '3',
-            title: 'Ekim',
-            isCompleted: true,
-            category: TaskCategory.planting,
-          ),
-          Task(
-            id: '4',
-            title: 'İlaçlama',
-            dueDate: DateTime(2026, 3, 15),
-            isCompleted: false,
-            category: TaskCategory.afterPlanting,
-          ),
-          Task(
-            id: '5',
-            title: 'Hasat',
-            dueDate: DateTime(2026, 6, 25),
-            isCompleted: false,
-            category: TaskCategory.harvest,
-          ),
-        ],
-      ),
-      Field(
-        id: '2',
-        name: 'Tarla 2',
-        area: 1.8,
-        currentCrop: 'Mısır',
-        plantingDate: DateTime(2025, 5, 10),
-        harvestDate: DateTime(2025, 9, 20),
-        latitude: 38.41885,
-        longitude: 27.12872,
-        locationName: 'İzmir • Konak',
-        ownership: FieldOwnership.rented,
-        tasks: [
-          Task(
-            id: '6',
-            title: 'Toprak analizi',
-            isCompleted: true,
-            category: TaskCategory.beforePlanting,
-          ),
-          Task(
-            id: '7',
-            title: 'Ekim',
-            isCompleted: true,
-            category: TaskCategory.planting,
-          ),
-          Task(
-            id: '8',
-            title: 'Sulama sistemi kurulumu',
-            dueDate: DateTime(2025, 6, 1),
-            isCompleted: false,
-            category: TaskCategory.afterPlanting,
-          ),
-          Task(
-            id: '9',
-            title: 'Yabani ot temizliği',
-            dueDate: DateTime(2025, 7, 15),
-            isCompleted: false,
-            category: TaskCategory.maintenance,
-          ),
-          Task(
-            id: '10',
-            title: 'Hasat',
-            dueDate: DateTime(2025, 9, 20),
-            isCompleted: false,
-            category: TaskCategory.harvest,
-          ),
-        ],
-      ),
-      Field(
-        id: '3',
-        name: 'Tarla 3',
-        area: 3.0,
-        latitude: 37.00002,
-        longitude: 35.32133,
-        locationName: 'Adana',
-      ),
-    ];
-  }
+  static final _store = SafeListStore<Field>(
+    'fields_data',
+    Field.fromJson,
+    (value) => value.toJson(),
+  );
+  static Future<List<Field>> loadFields() => _store.load();
+  static Future<void> saveFields(List<Field> records) =>
+      _store.replace(records);
+  static Future<void> addField(Field record) => _store.change((records) {
+    if (records.any((item) => item.id == record.id))
+      throw StateError('Duplicate id');
+    records.add(record);
+  });
+  static Future<void> updateField(Field record) => _store.change((records) {
+    final index = records.indexWhere((item) => item.id == record.id);
+    if (index == -1) throw StateError('Missing record');
+    records[index] = record;
+  });
+  static Future<void> deleteField(String id) =>
+      _store.change((records) => records.removeWhere((item) => item.id == id));
+  static Future<void> clearAllData() => _store.replace([]);
 }

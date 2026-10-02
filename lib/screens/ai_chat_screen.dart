@@ -20,12 +20,13 @@ class _AIChatScreenState extends State<AIChatScreen> {
     super.initState();
     _aiService = AIChatService();
     _addMessage(
-      'Merhaba! 👨‍⚕️ Ben Online Veterinerinizim. Hayvanlarınızın sağlığı hakkında size nasıl yardımcı olabilirim?',
+      'Merhaba! Hayvan bakımı hakkında bilgi veren yapay zekâ asistanıyım. Kesin teşhis için veteriner muayenesi gerekir. Nasıl yardımcı olabilirim?',
       isUser: false,
     );
   }
 
   void _addMessage(String text, {required bool isUser}) {
+    if (!mounted) return;
     setState(() {
       _messages.add(ChatMessage(text: text, isUser: isUser));
     });
@@ -46,7 +47,7 @@ class _AIChatScreenState extends State<AIChatScreen> {
 
   Future<void> _sendMessage() async {
     final message = _messageController.text.trim();
-    if (message.isEmpty) return;
+    if (message.isEmpty || _isLoading) return;
 
     _addMessage(message, isUser: true);
     _messageController.clear();
@@ -61,13 +62,14 @@ class _AIChatScreenState extends State<AIChatScreen> {
     } catch (e) {
       _addMessage('Üzgünüm, bir hata oluştu: $e', isUser: false);
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   Future<void> _sendQuickQuestion(String question) async {
+    if (_isLoading) return;
     _addMessage(question, isUser: true);
 
     setState(() {
@@ -80,9 +82,9 @@ class _AIChatScreenState extends State<AIChatScreen> {
     } catch (e) {
       _addMessage('Üzgünüm, bir hata oluştu: $e', isUser: false);
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -92,9 +94,9 @@ class _AIChatScreenState extends State<AIChatScreen> {
     if (currentKey != null) {
       controller.text = currentKey;
     }
-    
+
     if (!mounted) return;
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -216,14 +218,18 @@ class _AIChatScreenState extends State<AIChatScreen> {
                 color: Colors.green[100],
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(Icons.medical_services, color: Colors.green[700], size: 20),
+              child: Icon(
+                Icons.medical_services,
+                color: Colors.green[700],
+                size: 20,
+              ),
             ),
             const SizedBox(width: 12),
             const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Online Veteriner',
+                  'Bakım Asistanı',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 Text(
@@ -261,7 +267,7 @@ class _AIChatScreenState extends State<AIChatScreen> {
         children: [
           // Hızlı Sorular
           if (_messages.length <= 1) _buildQuickQuestions(),
-          
+
           // Mesaj Listesi
           Expanded(
             child: ListView.builder(
@@ -344,7 +350,10 @@ class _AIChatScreenState extends State<AIChatScreen> {
               return GestureDetector(
                 onTap: () => _sendQuickQuestion(q['text'] as String),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
@@ -353,11 +362,18 @@ class _AIChatScreenState extends State<AIChatScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(q['icon'] as IconData, size: 16, color: Colors.green[700]),
+                      Icon(
+                        q['icon'] as IconData,
+                        size: 16,
+                        color: Colors.green[700],
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         q['text'] as String,
-                        style: TextStyle(fontSize: 12, color: Colors.green[700]),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.green[700],
+                        ),
                       ),
                     ],
                   ),
@@ -374,8 +390,9 @@ class _AIChatScreenState extends State<AIChatScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
-        mainAxisAlignment:
-            message.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: message.isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!message.isUser) ...[
@@ -385,7 +402,11 @@ class _AIChatScreenState extends State<AIChatScreen> {
                 color: Colors.green[100],
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Icon(Icons.medical_services, size: 20, color: Colors.green[700]),
+              child: Icon(
+                Icons.medical_services,
+                size: 20,
+                color: Colors.green[700],
+              ),
             ),
             const SizedBox(width: 8),
           ],
@@ -473,11 +494,7 @@ class _AIChatScreenState extends State<AIChatScreen> {
                   color: Colors.green[600],
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: const Icon(
-                  Icons.send,
-                  color: Colors.white,
-                  size: 20,
-                ),
+                child: const Icon(Icons.send, color: Colors.white, size: 20),
               ),
             ),
           ],

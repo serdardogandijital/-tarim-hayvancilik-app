@@ -1,48 +1,22 @@
-# Gizlilik Politikası
+# Çiftçi+ Gizlilik Politikası
 
-Son güncelleme: 22 Ocak 2026
+Son güncelleme: 2 Ekim 2026
 
-Bu gizlilik politikası, Tarım & Hayvancılık Yönetim Uygulaması ("Uygulama") ile toplanan ve işlenen tüm kişisel veriler için geçerlidir. Uygulamayı kullanarak bu politikayı okuduğunuzu ve kabul ettiğinizi beyan edersiniz.
+Çiftçi+ tarla, hayvan ve çiftlik kayıtlarını cihazınızda tutar. Şu anda hesap açma ve kayıtları sunucuyla eşitleme özelliği yoktur. İnternet gerektiren özellikleri kullandığınızda aşağıdaki bilgiler ilgili hizmetlere gönderilir.
 
-## 1. Toplanan Veriler
-- **Hesap Bilgileri:** Ad, e‑posta ve isteğe bağlı profil notları.
-- **Tarla Verileri:** Konum (enlem/boylam), alan, ürün, ekim/hasat tarihleri ve görevler.
-- **Hayvan Verileri:** Kimlik, tür, ırk, doğum/son doğurma/kızgınlık tarihleri, aşı ve üretim kayıtları.
-- **Konum Bilgisi:** Manuel girilen konumlar veya cihaz izin verdiğinde GPS verileri.
-- **Bildirim Verileri:** Yerel bildirim planları ve hatırlatma mesajları.
-- **Uygulama Günlükleri:** Hata raporları ve performans ölçümleri (yalnızca anonim ve toplu).
+## İşlenen bilgiler
 
-## 2. Verilerin Kullanım Amaçları
-- Tarla ve hayvan kayıtlarınızı saklamak ve eşitlemek.
-- Hatırlatmalar ve bildirimleri planlamak.
-- Harita ve konum tabanlı özellikleri sunmak.
-- Hata ayıklama, güvenlik ve performans geliştirmeleri yapmak.
+- Eklediğiniz tarla, hayvan, süt, stok ve gelir–gider kayıtları cihazda saklanır.
+- Konum izni verirseniz konumunuz hava durumu ve bölgesel öneriler için kullanılır. Şehir adıyla arama yaptığınızda şehir adı; koordinatla hava durumu istediğinizde koordinatlar wttr.in hizmetine gönderilir.
+- Bitki analizi, canlı baskül veya yapay zekâ sohbetini başlatırsanız gönderdiğiniz fotoğraflar, yazdığınız metin ve ilgili analiz bilgileri OpenAI hizmetine iletilir. Mevcut sürümde bu özellikler için kullanıcı tarafından sağlanan API anahtarı gerekir; anahtar cihazın güvenli depolama alanında tutulur ve istekte OpenAI'ye gönderilir.
+- Bildirim tercihleri ve analiz hakkı bakiyesi cihazda tutulur. Fotoğraflar yalnızca sizin başlattığınız analiz sırasında gönderilir.
+- Reklam özelliği etkinleştirildiğinde Google AdMob reklam ve rıza bilgilerini işleyebilir. Uygulama, gerekiyorsa reklam rızası ekranını ve gizlilik seçeneklerini gösterir.
+- Ücretli analiz paketleri etkinleştirildiğinde mağaza ve RevenueCat ödeme işlemi, ürün ve müşteri kimliği bilgilerini işleyebilir. Ödeme kartı bilgileri uygulama tarafından alınmaz.
 
-## 3. Verilerin Paylaşımı
-- Verileriniz üçüncü taraflarla **satılmaz**.
-- Konum ve bildirim servisleri yalnızca cihaz içinde çalışır.
-- Yasal zorunluluklar doğduğunda yetkili makamlarla paylaşım yapılabilir.
+## Saklama, kontrol ve silme
 
-## 4. Saklama Süreleri
-- Veriler, siz silene veya hesabınızı kapatana kadar saklanır.
-- Uygulamayı kaldırmanız, yerel olarak tutulan verileri cihazdan kaldırır; iCloud/Google Drive yedekleriniz kullanıcı kontrolündedir.
+Çiftlik kayıtları cihazda, analiz hakkı ve API anahtarı gibi hassas ayarlar işletim sisteminin güvenli depolama alanında saklanır. Çiftlik kayıtları için şu anda geliştirici tarafından sağlanan bir bulut yedeği veya cihazlar arası geri yükleme bulunmaz. Uygulamayı silmeden önce kayıtlarınızın yedeğini alabilme durumunu kontrol edin. Uygulamayı kaldırdığınızda yerel kayıtlar normalde cihazdan kaldırılır; işletim sistemi yedekleri kendi ayarlarınıza bağlı olabilir. Üçüncü taraf hizmetlere gönderilen verilerin saklama ve silinmesi ilgili hizmetlerin politikalarına tabidir.
 
-## 5. Güvenlik
-- Veriler cihazınızda şifreli konteynerlerde (OS imkanları dahilinde) saklanır.
-- Yetkisiz erişime karşı düzenli güvenlik güncellemeleri uygulanır.
+Konum ve bildirim izinlerini cihaz ayarlarından değiştirebilirsiniz. Reklam gizlilik seçenekleri, reklamlar etkinse uygulamada gösterilir. Sorularınız ve gizlilik talepleriniz için **hi@ajanszero.com** adresine yazabilirsiniz.
 
-## 6. Kullanıcı Hakları
-- Verilerinize erişme, düzeltme ve silme.
-- Bildirim izinlerini dilediğiniz zaman cihaz ayarlarından değiştirme.
-- Konum paylaşımını devre dışı bırakma.
-
-## 7. Çocukların Gizliliği
-- Uygulama 13 yaşından küçükler için değildir; kasıtlı veri toplamıyoruz.
-
-## 8. Politika Güncellemeleri
-- Güncellemeleri README ve uygulama sürüm notlarında duyururuz. Politika değişiklikleri yayımlandığı anda yürürlüğe girer.
-
-## 9. İletişim
-Sorularınız için: **hi@ajanszero.com** | Tel: **+905434301320**
-
-Bu politikayı kabul etmiyorsanız lütfen uygulamayı kullanmayın.
+Bu metin uygulamanın özellikleri değiştikçe güncellenir.
