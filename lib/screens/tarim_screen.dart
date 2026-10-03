@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../services/safe_list_store.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -37,13 +39,17 @@ class _TarimScreenState extends State<TarimScreen> {
 
   Future<void> _loadFields() async {
     final loadedFields = await FieldStorageService.loadFields();
-    for (final field in loadedFields) {
-      await NotificationService.instance.scheduleFieldNotifications(field);
-    }
     if (!mounted) return;
     setState(() {
       _fields = loadedFields;
     });
+    unawaited(_scheduleFieldNotifications(loadedFields));
+  }
+
+  Future<void> _scheduleFieldNotifications(List<Field> fields) async {
+    for (final field in fields) {
+      await NotificationService.instance.scheduleFieldNotifications(field);
+    }
   }
 
   Future<void> _addNewField() async {
