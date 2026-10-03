@@ -54,16 +54,58 @@ class SafeListStore<T> {
         .toList();
   }
 
+  // A single damaged entry must not hide every other saved record. This is
+  // deliberately read-only: writes still use the strict parser above, so an
+  // incomplete recovery can never replace the original serialized data.
+  List<T> _readRecoverable(SharedPreferences prefs) {
+    final raw = prefs.getString(key);
+    if (raw != null) {
+      try {
+        final value = jsonDecode(raw);
+        if (value is List) {
+          final recovered = <T>[];
+          for (final item in value) {
+            try {
+              recovered.add(decode(Map<String, dynamic>.from(item as Map)));
+            } catch (_) {
+              // Preserve the complete raw value for a later repair.
+            }
+          }
+          if (recovered.isNotEmpty) return recovered;
+        }
+      } catch (_) {
+        // Try the previous complete snapshot below.
+      }
+    }
+    final backup = prefs.getString('${key}_backup');
+    if (backup == null) return <T>[];
+    try {
+      final list = jsonDecode(backup) as List;
+      return list
+          .map((item) => decode(Map<String, dynamic>.from(item as Map)))
+          .toList();
+    } catch (_) {
+      return <T>[];
+    }
+  }
+
   void _failed() => errors.value = {...errors.value, key};
 
   Future<List<T>> load() => _serial(() async {
+    SharedPreferences? prefs;
     try {
-      final records = _read(await SharedPreferences.getInstance());
+      prefs = await SharedPreferences.getInstance();
+      final records = _read(prefs);
       errors.value = {...errors.value}..remove(key);
       return records;
     } catch (_) {
       _failed();
-      return <T>[];
+      if (prefs == null) return <T>[];
+      try {
+        return _readRecoverable(prefs);
+      } catch (_) {
+        return <T>[];
+      }
     }
   });
 
