@@ -836,7 +836,7 @@ class _LiveScaleScreenState extends State<LiveScaleScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'ChatGPT Vision ile ağırlık tahmin ediliyor',
+                    'Yapay zekâ ile ağırlık tahmin ediliyor',
                     style: TextStyle(color: Colors.grey[400], fontSize: 14),
                   ),
                 ],

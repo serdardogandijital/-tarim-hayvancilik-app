@@ -2,6 +2,8 @@ import '../services/analysis_credits.dart';
 import '../services/analysis_purchases.dart';
 import '../widgets/bottom_banner.dart';
 import '../services/notification_service.dart';
+import '../services/update_notice.dart';
+import '../widgets/update_notice_dialog.dart';
 import 'package:flutter/material.dart';
 import 'tarim_screen.dart';
 import 'hayvancilik_screen.dart';
@@ -27,6 +29,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     AnalysisCredits.instance.refresh();
     AnalysisPurchases.instance.load();
     NotificationService.instance.warning.addListener(_showReminderWarning);
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _maybeShowUpdateNotice(),
+    );
+  }
+
+  Future<void> _maybeShowUpdateNotice() async {
+    if (!await UpdateNotice.shouldShowAutomatically() || !mounted) return;
+    await _showUpdateNotice();
+  }
+
+  Future<void> _showUpdateNotice() async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => const UpdateNoticeDialog(),
+    );
+    await UpdateNotice.markSeen();
   }
 
   @override
@@ -60,6 +78,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final screens = [
       const TarimScreen(),
       DashboardScreen(
+        onShowUpdateNotice: _showUpdateNotice,
         onNavigateToTab: (index) {
           setState(() {
             _selectedIndex = index;

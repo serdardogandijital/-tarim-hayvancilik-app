@@ -3,7 +3,8 @@ import 'analysis_credits.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'api_key_store.dart';
+import 'analysis_provider.dart';
+import 'gemini_vision_client.dart';
 import '../models/plant_analysis.dart';
 
 class PlantAnalysisService {
@@ -13,12 +14,22 @@ class PlantAnalysisService {
     AnalysisCredits? credits,
     http.Client? client,
     Future<String?> Function()? apiKeyReader,
+    Future<AnalysisCredential?> Function()? credentialReader,
   }) : _credits = credits ?? AnalysisCredits.instance,
        _client = client ?? http.Client(),
-       _apiKeyReader = apiKeyReader ?? ApiKeyStore.read;
+       _credentialReader =
+           credentialReader ??
+           (apiKeyReader == null
+               ? AnalysisProviderStore.resolve
+               : () async {
+                   final key = await apiKeyReader();
+                   return key == null
+                       ? null
+                       : AnalysisCredential(AnalysisProvider.openAi, key);
+                 });
   final AnalysisCredits _credits;
   final http.Client _client;
-  final Future<String?> Function() _apiKeyReader;
+  final Future<AnalysisCredential?> Function() _credentialReader;
 
   Future<PlantAnalysis> analyzePlant(
     String imagePath, {
@@ -31,9 +42,11 @@ class PlantAnalysisService {
   Future<PlantAnalysis> _analyzePlant(String imagePath) async {
     try {
       // API key kontrolü
-      final apiKey = await _apiKeyReader();
-      if (apiKey == null || apiKey.isEmpty) {
-        throw Exception('API key gerekli. Lütfen ayarlardan API key girin.');
+      final credential = await _credentialReader();
+      if (credential == null || credential.key.isEmpty) {
+        throw Exception(
+          'Analiz için seçili sağlayıcının API anahtarı gerekli. Ana sayfadaki ayarlardan girin.',
+        );
       }
 
       final imageFile = File(imagePath);
@@ -96,24 +109,32 @@ Kurallar:
         'temperature': 0.4,
       };
 
-      final response = await _client
-          .post(
-            Uri.parse(_apiUrl),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $apiKey',
-            },
-            body: jsonEncode(requestBody),
-          )
-          .timeout(const Duration(seconds: 30));
-
-      if (response.statusCode != 200) {
-        throw Exception('API hatası: ${response.statusCode}');
+      final String responseText;
+      if (credential.provider == AnalysisProvider.gemini) {
+        responseText = await GeminiVisionClient(_client).analyze(
+          apiKey: credential.key,
+          prompt: prompt,
+          imageDataUrls: [imageUrl],
+          labels: const ['Bitki fotoğrafı'],
+        );
+      } else {
+        final response = await _client
+            .post(
+              Uri.parse(_apiUrl),
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ${credential.key}',
+              },
+              body: jsonEncode(requestBody),
+            )
+            .timeout(const Duration(seconds: 30));
+        if (response.statusCode != 200) {
+          throw Exception('API hatası: ${response.statusCode}');
+        }
+        final jsonResponse = jsonDecode(response.body);
+        responseText =
+            jsonResponse['choices'][0]['message']['content'] as String;
       }
-
-      final jsonResponse = jsonDecode(response.body);
-      final responseText =
-          jsonResponse['choices'][0]['message']['content'] as String;
 
       return _parseResponse(responseText, imagePath);
     } catch (e) {

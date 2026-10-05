@@ -3,19 +3,30 @@ import 'analysis_credits.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'api_key_store.dart';
+import 'analysis_provider.dart';
+import 'gemini_vision_client.dart';
 
 class LivestockMLService {
   LivestockMLService({
     AnalysisCredits? credits,
     http.Client? client,
     Future<String?> Function()? apiKeyReader,
+    Future<AnalysisCredential?> Function()? credentialReader,
   }) : _credits = credits ?? AnalysisCredits.instance,
        _client = client ?? http.Client(),
-       _apiKeyReader = apiKeyReader ?? ApiKeyStore.read;
+       _credentialReader =
+           credentialReader ??
+           (apiKeyReader == null
+               ? AnalysisProviderStore.resolve
+               : () async {
+                   final key = await apiKeyReader();
+                   return key == null
+                       ? null
+                       : AnalysisCredential(AnalysisProvider.openAi, key);
+                 });
   final AnalysisCredits _credits;
   final http.Client _client;
-  final Future<String?> Function() _apiKeyReader;
+  final Future<AnalysisCredential?> Function() _credentialReader;
   static const String _apiUrl = 'https://api.openai.com/v1/chat/completions';
 
   bool _isInitialized = false;
@@ -83,10 +94,11 @@ class LivestockMLService {
 
     try {
       // API key kontrolü
-      final apiKey = await _apiKeyReader();
-      if (apiKey == null || apiKey.isEmpty) {
+      final credential = await _credentialReader();
+      if (credential == null || credential.key.isEmpty) {
         return _analysisFailure(
-          message: 'API key gerekli. Lütfen ayarlardan API key girin.',
+          message:
+              'Analiz için seçili sağlayıcının API anahtarı gerekli. Ana sayfadaki ayarlardan girin.',
         );
       }
 
@@ -162,30 +174,52 @@ Görseller ağırlık değerlendirmesine yetmiyorsa başarı yanıtı yerine err
         'temperature': 0.1,
       };
 
-      final response = await _client
-          .post(
-            Uri.parse(_apiUrl),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $apiKey',
-            },
-            body: jsonEncode(requestBody),
-          )
-          .timeout(const Duration(seconds: 30));
-
-      if (response.statusCode != 200) {
-        return _analysisFailure(message: 'API hatası: ${response.statusCode}');
+      final String responseText;
+      if (credential.provider == AnalysisProvider.gemini) {
+        responseText = await GeminiVisionClient(_client).analyze(
+          apiKey: credential.key,
+          prompt: prompt,
+          imageDataUrls: imageUrls,
+          labels: images.length == 3
+              ? const [
+                  '1. ÖNDEN görünüm',
+                  '2. YANDAN görünüm',
+                  '3. ARKADAN görünüm',
+                ]
+              : const ['Hayvan fotoğrafı'],
+          maxOutputTokens: 1024,
+        );
+      } else {
+        final response = await _client
+            .post(
+              Uri.parse(_apiUrl),
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ${credential.key}',
+              },
+              body: jsonEncode(requestBody),
+            )
+            .timeout(const Duration(seconds: 30));
+        if (response.statusCode != 200) {
+          return _analysisFailure(
+            message: 'API hatası: ${response.statusCode}',
+          );
+        }
+        final jsonResponse = jsonDecode(response.body);
+        responseText =
+            jsonResponse['choices'][0]['message']['content'] as String;
       }
-
-      final jsonResponse = jsonDecode(response.body);
-      final responseText =
-          jsonResponse['choices'][0]['message']['content'] as String;
 
       return _parseResponse(
         responseText,
         requirePhotoCheck: images.length == 3,
+        method: credential.provider == AnalysisProvider.gemini
+            ? 'Gemini Vision AI'
+            : 'ChatGPT Vision AI',
       );
-    } catch (e) {
+    } on FormatException catch (error) {
+      return _analysisFailure(message: error.message);
+    } catch (_) {
       return _analysisFailure();
     }
   }
@@ -193,6 +227,7 @@ Görseller ağırlık değerlendirmesine yetmiyorsa başarı yanıtı yerine err
   Map<String, dynamic> _parseResponse(
     String responseText, {
     bool requirePhotoCheck = false,
+    String method = 'ChatGPT Vision AI',
   }) {
     try {
       String jsonText = responseText.trim();
@@ -232,7 +267,7 @@ Görseller ağırlık değerlendirmesine yetmiyorsa başarı yanıtı yerine err
         'weight': weight,
         'conditionScore':
             parsed['conditionScore'] as String? ?? 'Değerlendirilemedi',
-        'method': 'ChatGPT Vision AI',
+        'method': method,
         'animalType': parsed['animalType'] as String? ?? 'Sığır',
         'breed': parsed['breed'] as String? ?? 'Bilinmiyor',
         'age': parsed['age'] as String? ?? 'Bilinmiyor',

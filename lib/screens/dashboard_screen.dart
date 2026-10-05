@@ -13,11 +13,17 @@ import '../services/weather_service.dart';
 import '../widgets/live_scale_card.dart';
 import '../widgets/plant_doctor_card.dart';
 import 'ai_chat_screen.dart';
+import 'analysis_settings_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final Function(int)? onNavigateToTab;
+  final VoidCallback? onShowUpdateNotice;
 
-  const DashboardScreen({super.key, this.onNavigateToTab});
+  const DashboardScreen({
+    super.key,
+    this.onNavigateToTab,
+    this.onShowUpdateNotice,
+  });
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -193,6 +199,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: const Color(0xFFF5F1E8),
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.key_outlined),
+            tooltip: 'Analiz API ayarları',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AnalysisSettingsScreen()),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.new_releases_outlined),
+            tooltip: 'Yenilikler',
+            onPressed: widget.onShowUpdateNotice,
+          ),
           IconButton(
             icon: const Icon(Icons.notifications_outlined),
             color: const Color(0xFF8B8B8B),
