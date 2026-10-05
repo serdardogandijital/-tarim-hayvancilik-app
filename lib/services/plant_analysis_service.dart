@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'analysis_provider.dart';
 import 'gemini_vision_client.dart';
+import 'hosted_analysis_client.dart';
 import '../models/plant_analysis.dart';
 
 class PlantAnalysisService {
@@ -41,12 +42,11 @@ class PlantAnalysisService {
 
   Future<PlantAnalysis> _analyzePlant(String imagePath) async {
     try {
-      // API key kontrolü
       final credential = await _credentialReader();
-      if (credential == null || credential.key.isEmpty) {
-        throw Exception(
-          'Analiz için seçili sağlayıcının API anahtarı gerekli. Ana sayfadaki ayarlardan girin.',
-        );
+      if (credential == null ||
+          (credential.provider != AnalysisProvider.hosted &&
+              credential.key.isEmpty)) {
+        throw Exception('Analiz hizmeti geçici olarak hazır değil.');
       }
 
       final imageFile = File(imagePath);
@@ -111,7 +111,11 @@ Kurallar:
       };
 
       final String responseText;
-      if (credential.provider == AnalysisProvider.gemini) {
+      if (credential.provider == AnalysisProvider.hosted) {
+        responseText = await HostedAnalysisClient(
+          _client,
+        ).analyze(kind: 'plant', prompt: prompt, imageDataUrls: [imageUrl]);
+      } else if (credential.provider == AnalysisProvider.gemini) {
         responseText = await GeminiVisionClient(_client).analyze(
           apiKey: credential.key,
           prompt: prompt,

@@ -20,7 +20,7 @@ class UpdateNoticeDialog extends StatelessWidget {
           '• Bir kayıt okunamazsa diğer kayıtlar gizlenmez; mevcut veri korunur.',
         ),
         SizedBox(height: 8),
-        Text('• Fotoğraf analizi için Gemini veya OpenAI seçebilirsiniz.'),
+        Text('• Fotoğraf analizi ve bakım asistanı artık anahtar girmeden çalışır.'),
         SizedBox(height: 8),
         Text('• Güncelleme notlarına ana sayfadan yeniden ulaşabilirsiniz.'),
         SizedBox(height: 12),

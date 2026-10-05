@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'analysis_provider.dart';
 import 'gemini_vision_client.dart';
+import 'hosted_analysis_client.dart';
 
 class LivestockMLService {
   LivestockMLService({
@@ -93,12 +94,12 @@ class LivestockMLService {
     }
 
     try {
-      // API key kontrolü
       final credential = await _credentialReader();
-      if (credential == null || credential.key.isEmpty) {
+      if (credential == null ||
+          (credential.provider != AnalysisProvider.hosted &&
+              credential.key.isEmpty)) {
         return _analysisFailure(
-          message:
-              'Analiz için seçili sağlayıcının API anahtarı gerekli. Ana sayfadaki ayarlardan girin.',
+          message: 'Analiz hizmeti geçici olarak hazır değil.',
         );
       }
 
@@ -175,7 +176,11 @@ Görseller ağırlık değerlendirmesine yetmiyorsa başarı yanıtı yerine err
       };
 
       final String responseText;
-      if (credential.provider == AnalysisProvider.gemini) {
+      if (credential.provider == AnalysisProvider.hosted) {
+        responseText = await HostedAnalysisClient(
+          _client,
+        ).analyze(kind: 'livestock', prompt: prompt, imageDataUrls: imageUrls);
+      } else if (credential.provider == AnalysisProvider.gemini) {
         responseText = await GeminiVisionClient(_client).analyze(
           apiKey: credential.key,
           prompt: prompt,
@@ -213,7 +218,9 @@ Görseller ağırlık değerlendirmesine yetmiyorsa başarı yanıtı yerine err
       return _parseResponse(
         responseText,
         requirePhotoCheck: images.length == 3,
-        method: credential.provider == AnalysisProvider.gemini
+        method:
+            credential.provider == AnalysisProvider.hosted ||
+                credential.provider == AnalysisProvider.gemini
             ? 'Gemini Vision AI'
             : 'ChatGPT Vision AI',
       );

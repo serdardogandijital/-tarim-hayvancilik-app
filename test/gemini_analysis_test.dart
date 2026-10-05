@@ -6,9 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:image/image.dart' as img;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tarim_hayvancilik_app/services/analysis_provider.dart';
-import 'package:tarim_hayvancilik_app/services/api_key_store.dart';
 import 'package:tarim_hayvancilik_app/services/livestock_ml_service.dart';
 import 'package:tarim_hayvancilik_app/services/plant_analysis_service.dart';
 
@@ -16,19 +14,34 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() {
     FlutterSecureStorage.setMockInitialValues({});
-    SharedPreferences.setMockInitialValues({});
   });
 
-  test('Gemini selection keeps an existing OpenAI key intact', () async {
-    await ApiKeyStore.write('personal-openai-key');
-    await AnalysisProviderStore.saveGeminiKey('personal-gemini-key');
-    expect(
-      (await AnalysisProviderStore.resolve())?.provider,
-      AnalysisProvider.gemini,
+  test('analysis works without a user API key', () async {
+    final credential = await AnalysisProviderStore.resolve();
+    expect(credential.provider, AnalysisProvider.hosted);
+    expect(credential.key, isEmpty);
+  });
+
+  test('default photo analysis calls the hosted service without a key', () async {
+    final directory = await Directory.systemTemp.createTemp('ciftci_hosted_');
+    addTearDown(() => directory.delete(recursive: true));
+    final photo = await File('${directory.path}/animal.png').writeAsBytes(
+      img.encodePng(img.Image(width: 4, height: 4)),
     );
-    expect(await ApiKeyStore.read(), 'personal-openai-key');
-    expect(await AnalysisProviderStore.select(AnalysisProvider.openAi), isTrue);
-    expect((await AnalysisProviderStore.resolve())?.key, 'personal-openai-key');
+    final service = LivestockMLService(
+      client: MockClient((request) async {
+        expect(request.url.host, 'elaborate-stroopwafel-974180.netlify.app');
+        expect(request.url.path, '/api/analyze');
+        expect(request.headers.containsKey('Authorization'), isFalse);
+        expect(request.headers.containsKey('x-goog-api-key'), isFalse);
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body['kind'], 'livestock');
+        expect(body['images'], hasLength(1));
+        return http.Response('{"text":"{\\"weight\\":520}"}', 200);
+      }),
+    );
+    expect((await service.analyzeImage(photo))['weight'], 520);
+    service.dispose();
   });
 
   test(

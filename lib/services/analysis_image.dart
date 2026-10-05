@@ -23,13 +23,28 @@ class AnalysisImage {
       );
     }
     final oriented = img.bakeOrientation(decoded);
-    final resized = oriented.width > 1600 || oriented.height > 1600
+    final resized = oriented.width > 1280 || oriented.height > 1280
         ? img.copyResize(
             oriented,
-            width: oriented.width >= oriented.height ? 1600 : null,
-            height: oriented.height > oriented.width ? 1600 : null,
+            width: oriented.width >= oriented.height ? 1280 : null,
+            height: oriented.height > oriented.width ? 1280 : null,
           )
         : oriented;
-    return Uint8List.fromList(img.encodeJpg(resized, quality: 85));
+    for (final quality in [78, 65, 50]) {
+      final jpeg = img.encodeJpg(resized, quality: quality);
+      if (jpeg.length <= 1_100_000) return Uint8List.fromList(jpeg);
+    }
+    final smaller = img.copyResize(
+      resized,
+      width: resized.width >= resized.height ? 960 : null,
+      height: resized.height > resized.width ? 960 : null,
+    );
+    final jpeg = img.encodeJpg(smaller, quality: 50);
+    if (jpeg.length > 1_100_000) {
+      throw const FormatException(
+        'Fotoğraf hâlâ çok büyük. Başka bir fotoğraf seçin.',
+      );
+    }
+    return Uint8List.fromList(jpeg);
   }
 }
