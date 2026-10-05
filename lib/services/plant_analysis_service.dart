@@ -3,7 +3,9 @@ import 'analysis_credits.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'api_key_store.dart';
+import 'analysis_provider.dart';
+import 'gemini_vision_client.dart';
+import 'hosted_analysis_client.dart';
 import '../models/plant_analysis.dart';
 
 class PlantAnalysisService {
@@ -13,12 +15,22 @@ class PlantAnalysisService {
     AnalysisCredits? credits,
     http.Client? client,
     Future<String?> Function()? apiKeyReader,
+    Future<AnalysisCredential?> Function()? credentialReader,
   }) : _credits = credits ?? AnalysisCredits.instance,
        _client = client ?? http.Client(),
-       _apiKeyReader = apiKeyReader ?? ApiKeyStore.read;
+       _credentialReader =
+           credentialReader ??
+           (apiKeyReader == null
+               ? AnalysisProviderStore.resolve
+               : () async {
+                   final key = await apiKeyReader();
+                   return key == null
+                       ? null
+                       : AnalysisCredential(AnalysisProvider.openAi, key);
+                 });
   final AnalysisCredits _credits;
   final http.Client _client;
-  final Future<String?> Function() _apiKeyReader;
+  final Future<AnalysisCredential?> Function() _credentialReader;
 
   Future<PlantAnalysis> analyzePlant(
     String imagePath, {
@@ -30,10 +42,11 @@ class PlantAnalysisService {
 
   Future<PlantAnalysis> _analyzePlant(String imagePath) async {
     try {
-      // API key kontrolü
-      final apiKey = await _apiKeyReader();
-      if (apiKey == null || apiKey.isEmpty) {
-        throw Exception('API key gerekli. Lütfen ayarlardan API key girin.');
+      final credential = await _credentialReader();
+      if (credential == null ||
+          (credential.provider != AnalysisProvider.hosted &&
+              credential.key.isEmpty)) {
+        throw Exception('Analiz hizmeti geçici olarak hazır değil.');
       }
 
       final imageFile = File(imagePath);
@@ -57,7 +70,6 @@ Fotoğraftaki bitkiyi/ürünü tespit et ve aşağıdaki bilgileri JSON formatı
   "plantName": "Bitki/Ürün adı (Türkçe) - örn: Arpa, Buğday, Yonca, Fiğ, Gül, Domates vb.",
   "scientificName": "Bilimsel adı (Latince)",
   "status": "Sağlıklı/Hastalıklı/Zararlı Var/Besin Eksikliği/Olgunlaşmamış/Hasat Zamanı",
-  "confidence": 0.95,
   "diseases": ["Tespit edilen hastalıklar listesi - yoksa boş array"],
   "treatments": ["Tedavi önerileri - pratik ve uygulanabilir"],
   "careAdvice": ["Genel bakım tavsiyeleri - sulama, gübreleme, ilaçlama vb."],
@@ -76,7 +88,9 @@ Kurallar:
 - Acil durumları belirt (don riski, kuraklık, hastalık yayılması vb.)
 - JSON formatına kesinlikle uy
 - Bitki yoksa veya tanımlayamıyorsan {"error":"uncertain"} döndür; tahmin uydurma.
-- Fotoğraf tek başına kesin hastalık teşhisi değildir; belirsizliği belirt.''';
+- Fotoğraf tek başına kesin hastalık teşhisi değildir; belirsizliği belirt.
+- Konum, tarih ve toprak bilgisi verilmediyse kesin sulama, gübreleme veya hasat takvimi uydurma.
+- Fotoğraftan ilaç etken maddesi veya doz belirleme; gerektiğinde ziraat uzmanına yönlendir.''';
 
       final requestBody = {
         'model': 'gpt-4o-mini',
@@ -96,24 +110,37 @@ Kurallar:
         'temperature': 0.4,
       };
 
-      final response = await _client
-          .post(
-            Uri.parse(_apiUrl),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $apiKey',
-            },
-            body: jsonEncode(requestBody),
-          )
-          .timeout(const Duration(seconds: 30));
-
-      if (response.statusCode != 200) {
-        throw Exception('API hatası: ${response.statusCode}');
+      final String responseText;
+      if (credential.provider == AnalysisProvider.hosted) {
+        responseText = await HostedAnalysisClient(
+          _client,
+        ).analyze(kind: 'plant', prompt: prompt, imageDataUrls: [imageUrl]);
+      } else if (credential.provider == AnalysisProvider.gemini) {
+        responseText = await GeminiVisionClient(_client).analyze(
+          apiKey: credential.key,
+          prompt: prompt,
+          imageDataUrls: [imageUrl],
+          labels: const ['Bitki fotoğrafı'],
+          thinkingLevel: 'low',
+        );
+      } else {
+        final response = await _client
+            .post(
+              Uri.parse(_apiUrl),
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ${credential.key}',
+              },
+              body: jsonEncode(requestBody),
+            )
+            .timeout(const Duration(seconds: 30));
+        if (response.statusCode != 200) {
+          throw Exception('API hatası: ${response.statusCode}');
+        }
+        final jsonResponse = jsonDecode(response.body);
+        responseText =
+            jsonResponse['choices'][0]['message']['content'] as String;
       }
-
-      final jsonResponse = jsonDecode(response.body);
-      final responseText =
-          jsonResponse['choices'][0]['message']['content'] as String;
 
       return _parseResponse(responseText, imagePath);
     } catch (e) {
@@ -146,11 +173,10 @@ Kurallar:
           json['status'] is! String) {
         throw const FormatException('Bitki güvenilir biçimde tanımlanamadı');
       }
-      final confidence = (json['confidence'] as num?)?.toDouble();
-      if (confidence == null ||
-          !confidence.isFinite ||
-          confidence < 0 ||
-          confidence > 1) {
+      // Older saved analyses may contain a model-provided confidence value.
+      // New analyses leave it unset because it is not a calibrated probability.
+      final confidence = (json['confidence'] as num?)?.toDouble() ?? 0.0;
+      if (!confidence.isFinite || confidence < 0 || confidence > 1) {
         throw const FormatException('Geçersiz analiz yanıtı');
       }
 

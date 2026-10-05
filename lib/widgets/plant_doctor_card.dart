@@ -324,7 +324,7 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
           Icon(Icons.auto_awesome, color: Colors.white70, size: 14),
           SizedBox(width: 6),
           Text(
-            'ChatGPT Vision AI ile analiz',
+            'Yapay zekâ ile analiz',
             style: TextStyle(color: Colors.white70, fontSize: 11),
           ),
         ],
@@ -395,13 +395,6 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
             analysis.status,
             _getStatusColor(analysis.status),
           ),
-          _buildInfoRow(
-            Icons.analytics,
-            'Güven',
-            '%${(analysis.confidence * 100).toStringAsFixed(0)}',
-            Colors.purple,
-          ),
-
           const SizedBox(height: 16),
           const Divider(),
           const SizedBox(height: 8),

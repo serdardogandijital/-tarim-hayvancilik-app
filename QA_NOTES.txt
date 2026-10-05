@@ -281,3 +281,38 @@ Bu bölüm önceki "reklam tamamen kapalı" kararının yerini alır.
   raporlandı. Sonraki doğrudan açılış başarılı; PID 23240 birden fazla
   süreç sorgusunda ve konsol dinleyicisi ayrıldıktan sonra çalışıyor.
   İlk hatanın nedeni belirlenmedi; tekrarında bir uygulama çöküşü gözlenmedi.
+
+2026-10-05 — 1.1.1 yükseltme ve Gemini doğrulaması
+- Yalnız bu Mac ve Çakır iPhone 14 Pro Max kullanıldı. Ayrı
+  com.thtakvim.tarimHayvancilikApp.dev test uygulamasına 1.1.0+33 profile
+  paketi kuruldu; test uygulamasının tercihlerine bir sentetik tarla kaydı
+  yazıldı ve cihazdan geri okunarak doğrulandı. Ardından aynı bundle ID ile
+  1.1.1+34 profile paketi kuruldu ve başlatıldı. Tarla kaydı ile sürüm bildirimi
+  işareti cihazın tercih dosyasından geri okunabildi. Mağaza uygulamasına
+  dokunulmadı. Bu, sentetik test verisinin yükseltmede korunduğunu gösterir;
+  kullanıcının eksik gerçek tarlalarının geri geldiğini kanıtlamaz.
+- Gemini ve güncelleme bildirimi dahil 88 Flutter testi geçti. Analiz 0
+  hata/uyarı verdi (126 eski bilgi düzeyi stil notu). Gerçek Gemini çağrısı
+  kişisel API anahtarı olmadığı için yapılmadı; HTTP istemcisi taklit edildi.
+- iOS App Store 1.1.1+34 IPA yüklendi. Transporter, iOS 13 hedefi için
+  Nisan 2027'ye dönük uyarı ve eksik
+  NSLocationAlwaysAndWhenInUseUsageDescription uyarısı verdi. Sonuncusu
+  1.1.1+35 kaynağında düzeltildi; 35 numaralı paketin yükleme/doğrulaması
+  ayrıca tamamlanmalıdır. Android 1.1.1+34 AAB imzalandı; ortak 35 paket
+  henüz hazırlanıyor.
+
+2026-10-05 — Kullanıcı anahtarı olmadan Gemini geçidi
+- Ana ekrandan ve bakım asistanından API anahtarı girişleri kaldırıldı.
+  Bitki, canlı baskül ve bakım sohbeti Netlify Functions üzerindeki
+  /api/analyze yolunu kullanıyor; Gemini anahtarı mobil pakette bulunmuyor.
+- Mevcut Netlify takım planı Free, 300 kredi/ay ve aşım ücreti yok.
+  Sunucu işlevinde 5 istek/dakika/IP sınırı ve istek boyutu doğrulaması var.
+  İstemci fotoğrafları Netlify 6 MB işlev sınırı için küçültüyor.
+- PR #3 Netlify önizleme işlevinde geçersiz istek 400, gerçek Gemini sohbet
+  isteği 200 ve yapay yaprak görseli için JSON uncertain yanıtı doğrulandı.
+  Gerçek tarla/hayvan fotoğrafı ve tartı kıyası henüz yapılmadı.
+- 89 Flutter testi, 2 Node işlev testi geçti; statik analizde hata/uyarı yok.
+  Yeni mağaza paketi 1.1.1+36; eski +34/+35 paketleri seçilmemeli.
+- İstemci hak bakiyesi hâlen cihazdaki yerel kayıt; sunucu tarafından
+  doğrulanmış kullanıcı hesabı/hak defteri değildir. Ücretsiz Netlify kredi
+  sınırı dolarsa analiz geçici olarak kullanılamaz.

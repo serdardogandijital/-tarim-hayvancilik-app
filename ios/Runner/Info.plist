@@ -32,6 +32,8 @@
 	<string>Hayvan ağırlık tahmini için kamera kullanılıyor.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>Tarım ve hayvancılık önerilerini kişiselleştirmek için konum bilgisi kullanılıyor.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Konumunuz hava durumu ve bölgesel tarım önerilerini göstermek için kullanılır.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Bulunduğunuz bölgeye göre ekim önerileri ve hava durumu bilgisi almak için konum izni gerekiyor.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../services/safe_list_store.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -47,13 +49,17 @@ class _HayvancilikScreenState extends State<HayvancilikScreen> {
 
   Future<void> _loadAnimals() async {
     final loadedAnimals = await AnimalStorageService.loadAnimals();
-    for (final animal in loadedAnimals) {
-      await NotificationService.instance.scheduleAnimalNotifications(animal);
-    }
     if (!mounted) return;
     setState(() {
       _animals = loadedAnimals;
     });
+    unawaited(_scheduleAnimalNotifications(loadedAnimals));
+  }
+
+  Future<void> _scheduleAnimalNotifications(List<Animal> animals) async {
+    for (final animal in animals) {
+      await NotificationService.instance.scheduleAnimalNotifications(animal);
+    }
   }
 
   Future<void> _addAnimal(Animal animal) async {

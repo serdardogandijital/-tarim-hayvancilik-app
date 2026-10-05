@@ -58,7 +58,7 @@ class TarimHayvancilikApp extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Text(
-                        'Bazı kayıtlar okunamadı veya kaydedilemedi. Mevcut veriler korunuyor; lütfen uygulamayı silmeyin.',
+                        'Bazı kayıtlar gösterilemiyor veya kaydedilemiyor. Saklanan veriler korunuyor; lütfen uygulamayı silmeyin.',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ),
