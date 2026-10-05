@@ -395,13 +395,6 @@ class _PlantDoctorCardState extends State<PlantDoctorCard> {
             analysis.status,
             _getStatusColor(analysis.status),
           ),
-          _buildInfoRow(
-            Icons.analytics,
-            'Güven',
-            '%${(analysis.confidence * 100).toStringAsFixed(0)}',
-            Colors.purple,
-          ),
-
           const SizedBox(height: 16),
           const Divider(),
           const SizedBox(height: 8),

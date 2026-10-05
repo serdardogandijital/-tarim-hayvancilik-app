@@ -187,7 +187,7 @@ Görseller ağırlık değerlendirmesine yetmiyorsa başarı yanıtı yerine err
                   '3. ARKADAN görünüm',
                 ]
               : const ['Hayvan fotoğrafı'],
-          maxOutputTokens: 1024,
+          maxOutputTokens: 4096,
         );
       } else {
         final response = await _client

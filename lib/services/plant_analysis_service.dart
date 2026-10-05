@@ -70,7 +70,6 @@ Fotoğraftaki bitkiyi/ürünü tespit et ve aşağıdaki bilgileri JSON formatı
   "plantName": "Bitki/Ürün adı (Türkçe) - örn: Arpa, Buğday, Yonca, Fiğ, Gül, Domates vb.",
   "scientificName": "Bilimsel adı (Latince)",
   "status": "Sağlıklı/Hastalıklı/Zararlı Var/Besin Eksikliği/Olgunlaşmamış/Hasat Zamanı",
-  "confidence": 0.95,
   "diseases": ["Tespit edilen hastalıklar listesi - yoksa boş array"],
   "treatments": ["Tedavi önerileri - pratik ve uygulanabilir"],
   "careAdvice": ["Genel bakım tavsiyeleri - sulama, gübreleme, ilaçlama vb."],
@@ -89,7 +88,9 @@ Kurallar:
 - Acil durumları belirt (don riski, kuraklık, hastalık yayılması vb.)
 - JSON formatına kesinlikle uy
 - Bitki yoksa veya tanımlayamıyorsan {"error":"uncertain"} döndür; tahmin uydurma.
-- Fotoğraf tek başına kesin hastalık teşhisi değildir; belirsizliği belirt.''';
+- Fotoğraf tek başına kesin hastalık teşhisi değildir; belirsizliği belirt.
+- Konum, tarih ve toprak bilgisi verilmediyse kesin sulama, gübreleme veya hasat takvimi uydurma.
+- Fotoğraftan ilaç etken maddesi veya doz belirleme; gerektiğinde ziraat uzmanına yönlendir.''';
 
       final requestBody = {
         'model': 'gpt-4o-mini',
@@ -116,6 +117,7 @@ Kurallar:
           prompt: prompt,
           imageDataUrls: [imageUrl],
           labels: const ['Bitki fotoğrafı'],
+          thinkingLevel: 'low',
         );
       } else {
         final response = await _client
@@ -167,11 +169,10 @@ Kurallar:
           json['status'] is! String) {
         throw const FormatException('Bitki güvenilir biçimde tanımlanamadı');
       }
-      final confidence = (json['confidence'] as num?)?.toDouble();
-      if (confidence == null ||
-          !confidence.isFinite ||
-          confidence < 0 ||
-          confidence > 1) {
+      // Older saved analyses may contain a model-provided confidence value.
+      // New analyses leave it unset because it is not a calibrated probability.
+      final confidence = (json['confidence'] as num?)?.toDouble() ?? 0.0;
+      if (!confidence.isFinite || confidence < 0 || confidence > 1) {
         throw const FormatException('Geçersiz analiz yanıtı');
       }
 

@@ -63,6 +63,10 @@ void main() {
           expect(request.headers['x-goog-api-key'], 'personal-key');
           expect(request.url.query, isEmpty);
           final body = jsonDecode(request.body) as Map<String, dynamic>;
+          final config = body['generationConfig'] as Map<String, dynamic>;
+          expect(config.containsKey('temperature'), isFalse);
+          expect(config['maxOutputTokens'], 4096);
+          expect(config['thinkingConfig'], {'thinkingLevel': 'medium'});
           final parts = ((body['contents'] as List).single['parts'] as List);
           expect(parts.where((p) => p['inline_data'] != null), hasLength(3));
           for (var i = 0; i < 3; i++) {
@@ -113,6 +117,8 @@ void main() {
       final client = MockClient((request) async {
         calls++;
         final body = jsonDecode(request.body) as Map<String, dynamic>;
+        final config = body['generationConfig'] as Map<String, dynamic>;
+        expect(config['thinkingConfig'], {'thinkingLevel': 'low'});
         final parts = ((body['contents'] as List).single['parts'] as List);
         expect(parts.where((p) => p['inline_data'] != null), hasLength(1));
         return http.Response(

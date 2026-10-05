@@ -16,7 +16,8 @@ class GeminiVisionClient {
     required String prompt,
     required List<String> imageDataUrls,
     required List<String> labels,
-    int maxOutputTokens = 2048,
+    int maxOutputTokens = 4096,
+    String thinkingLevel = 'medium',
   }) async {
     if (imageDataUrls.length != labels.length || imageDataUrls.isEmpty) {
       throw const FormatException('Görsel sayısı uygun değil');
@@ -46,9 +47,9 @@ class GeminiVisionClient {
         {'role': 'user', 'parts': parts},
       ],
       'generationConfig': {
-        'temperature': 0.2,
         'maxOutputTokens': maxOutputTokens,
         'responseMimeType': 'application/json',
+        'thinkingConfig': {'thinkingLevel': thinkingLevel},
       },
     };
     final response = await client
